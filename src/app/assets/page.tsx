@@ -30,7 +30,7 @@ export default async function AssetsPage({ searchParams }: PageProps) {
       });
 
   const watchlistEntries = await prisma.watchlistEntry.findMany({
-    include: { asset: { select: { ticker: true, name: true, sector: true } } },
+    include: { asset: { select: { ticker: true, name: true, sector: true, lastPrice: true, lastPriceTs: true, priceSource: true } } },
     orderBy: { addedAt: "desc" },
   });
 
@@ -65,7 +65,14 @@ export default async function AssetsPage({ searchParams }: PageProps) {
         <h2 className="text-lg font-semibold mb-3">Watchlist</h2>
         <WatchlistTable entries={watchlistEntries.map((e) => ({
           assetTicker: e.assetTicker,
-          asset: { ticker: e.asset.ticker, name: e.asset.name, sector: e.asset.sector },
+          asset: {
+            ticker: e.asset.ticker,
+            name: e.asset.name,
+            sector: e.asset.sector,
+            lastPrice: e.asset.lastPrice,
+            lastPriceTs: e.asset.lastPriceTs,
+            priceSource: e.asset.priceSource,
+          },
           notes: e.notes,
           addedAt: e.addedAt,
         }))} />

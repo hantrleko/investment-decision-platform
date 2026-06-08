@@ -20,16 +20,17 @@ model User {
 }
 
 model Asset {
-  ticker           String   @id
-  name             String
-  sector           String?
-  assetType        String   @default("equity")
-  exchange         String?
-  notes            String?
-  lastKnownPrice   Float?
-  priceDate        DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  ticker        String   @id
+  name          String
+  sector        String?
+  assetType     String   @default("equity")
+  exchange      String?
+  notes         String?
+  lastPrice     Float?
+  lastPriceTs   DateTime?
+  priceSource   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   researchArtifacts ResearchArtifact[]
   scores           Score[]

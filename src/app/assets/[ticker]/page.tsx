@@ -6,6 +6,8 @@ import { Separator } from "@/components/ui/separator";
 import { WatchlistToggle } from "@/components/assets/watchlist-toggle";
 import { AssetTabs } from "@/components/assets/asset-tabs";
 import { ScoreComparison } from "@/components/scoring/score-comparison";
+import { RefreshPriceButton } from "@/components/assets/refresh-price-button";
+import { ManualPriceForm } from "@/components/assets/manual-price-form";
 
 interface PageProps {
   params: Promise<{ ticker: string }>;
@@ -94,17 +96,23 @@ export default async function AssetDetailPage({ params }: PageProps) {
             {asset.sector && <span>{asset.sector}</span>}
             <span>{asset.assetType}</span>
             {asset.exchange && <span>{asset.exchange}</span>}
-            {asset.lastKnownPrice != null && (
-              <span>${asset.lastKnownPrice.toFixed(2)}{asset.priceDate ? ` as of ${asset.priceDate.toLocaleDateString()}` : ""}</span>
-            )}
           </div>
           {asset.notes && <p className="mt-2 text-sm">{asset.notes}</p>}
         </div>
-        <div className="flex gap-2">
-          <Link href={`/scores/new?asset=${ticker}`}>
-            <Button size="sm">Score with Framework</Button>
-          </Link>
-          <WatchlistToggle assetTicker={ticker} isOnWatchlist={isOnWatchlist} />
+        <div className="flex flex-col items-end gap-2">
+          <RefreshPriceButton
+            ticker={ticker}
+            currentPrice={asset.lastPrice}
+            currentPriceTs={asset.lastPriceTs?.toISOString() ?? null}
+            currentSource={asset.priceSource}
+          />
+          <ManualPriceForm ticker={ticker} />
+          <div className="flex gap-2">
+            <Link href={`/scores/new?asset=${ticker}`}>
+              <Button size="sm">Score with Framework</Button>
+            </Link>
+            <WatchlistToggle assetTicker={ticker} isOnWatchlist={isOnWatchlist} />
+          </div>
         </div>
       </div>
 

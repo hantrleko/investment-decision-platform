@@ -31,8 +31,9 @@ export async function createAsset(input: unknown) {
       assetType: data.assetType,
       exchange: data.exchange || null,
       notes: data.notes || null,
-      lastKnownPrice: data.lastKnownPrice ?? null,
-      priceDate: data.priceDate ?? null,
+      lastPrice: data.lastPrice ?? null,
+      lastPriceTs: data.lastPriceTs ?? null,
+      priceSource: data.priceSource ?? null,
     },
   });
 

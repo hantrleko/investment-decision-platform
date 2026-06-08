@@ -11,8 +11,9 @@ export const createAssetSchema = z.object({
   assetType: z.enum(["equity", "crypto", "fx", "commodity", "other"]).default("equity"),
   exchange: z.string().max(50).optional().default(""),
   notes: z.string().max(2000).optional().default(""),
-  lastKnownPrice: z.number().positive().optional(),
-  priceDate: z.string().optional().transform((v) => (v ? new Date(v) : undefined)),
+  lastPrice: z.number().positive().optional(),
+  lastPriceTs: z.string().optional().transform((v) => (v ? new Date(v) : undefined)),
+  priceSource: z.string().max(50).optional(),
 });
 
 export const addToWatchlistSchema = z.object({
