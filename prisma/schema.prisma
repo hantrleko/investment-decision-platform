@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  researchArtifacts ResearchArtifact[]
+  decisions         Decision[]
+}
+
+model Asset {
+  ticker           String   @id
+  name             String
+  sector           String?
+  assetType        String   @default("equity")
+  exchange         String?
+  notes            String?
+  lastKnownPrice   Float?
+  priceDate        DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  researchArtifacts ResearchArtifact[]
+  scores           Score[]
+  watchlistEntries WatchlistEntry[]
+}
+
+model Framework {
+  id               String  @id @default(cuid())
+  name             String  @unique
+  slug             String  @unique
+  description      String?
+  schemaDefinition String
+  isActive         Boolean @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  scores Score[]
+}
+
+model ResearchArtifact {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  contentType String   @default("rich-text")
+  tags        String   @default("")
+  assetTicker String?
+  asset       Asset?   @relation(fields: [assetTicker], references: [ticker], onDelete: SetNull)
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  attachments DocumentAttachment[]
+  scores      Score[]
+  decisions   DecisionResearchLink[]
+}
+
+model DocumentAttachment {
+  id                  String   @id @default(cuid())
+  fileName            String
+  filePath            String
+  mimeType            String
+  fileSizeBytes       Int
+  researchArtifactId  String
+  researchArtifact    ResearchArtifact @relation(fields: [researchArtifactId], references: [id], onDelete: Cascade)
+  createdAt           DateTime @default(now())
+}
+
+model Score {
+  id                 String    @id @default(cuid())
+  frameworkId        String
+  framework          Framework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  assetTicker        String
+  asset              Asset     @relation(fields: [assetTicker], references: [ticker], onDelete: Cascade)
+  researchArtifactId String?
+  researchArtifact   ResearchArtifact? @relation(fields: [researchArtifactId], references: [id], onDelete: SetNull)
+  factorScores       String
+  compositeScore     Float?
+  manualOverride     Boolean   @default(false)
+  overrideNote       String?
+  provenance         String
+  scoredAt           DateTime  @default(now())
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  decisions DecisionScoreLink[]
+}
+
+model Decision {
+  id          String   @id @default(cuid())
+  title       String
+  direction   String
+  thesis      String
+  status      String   @default("open")
+  outcome     String?
+  outcomeNote String?
+  outcomeDate DateTime?
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  researchLinks DecisionResearchLink[]
+  scoreLinks    DecisionScoreLink[]
+}
+
+model DecisionResearchLink {
+  decisionId         String
+  researchArtifactId String
+  decision           Decision         @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  researchArtifact   ResearchArtifact @relation(fields: [researchArtifactId], references: [id], onDelete: Cascade)
+
+  @@id([decisionId, researchArtifactId])
+}
+
+model DecisionScoreLink {
+  decisionId String
+  scoreId    String
+  decision   Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  score      Score    @relation(fields: [scoreId], references: [id], onDelete: Cascade)
+
+  @@id([decisionId, scoreId])
+}
+
+model WatchlistEntry {
+  id          String   @id @default(cuid())
+  assetTicker String
+  asset       Asset    @relation(fields: [assetTicker], references: [ticker], onDelete: Cascade)
+  notes       String?
+  addedAt     DateTime @default(now())
+}
