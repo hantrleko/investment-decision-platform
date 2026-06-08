@@ -54,3 +54,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
 });
+
+export async function verifySession() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return null;
+  }
+  // Verify the user still exists in DB (JWT may hold stale ID after DB reset)
+  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+  if (!user) {
+    return null;
+  }
+  return { ...session, user: { ...session.user, id: session.user.id } };
+}

@@ -1,14 +1,14 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { verifySession } from "@/lib/auth";
 import { createAssetSchema, addToWatchlistSchema, removeFromWatchlistSchema } from "@/lib/validators/asset";
 import { revalidatePath } from "next/cache";
 
 export async function createAsset(input: unknown) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { error: "Unauthorized" };
+  const session = await verifySession();
+  if (!session) {
+    return { error: "Session expired. Please sign out and sign in again." };
   }
 
   const parsed = createAssetSchema.safeParse(input);
@@ -41,9 +41,9 @@ export async function createAsset(input: unknown) {
 }
 
 export async function addToWatchlist(input: unknown) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { error: "Unauthorized" };
+  const session = await verifySession();
+  if (!session) {
+    return { error: "Session expired. Please sign out and sign in again." };
   }
 
   const parsed = addToWatchlistSchema.safeParse(input);
@@ -75,9 +75,9 @@ export async function addToWatchlist(input: unknown) {
 }
 
 export async function removeFromWatchlist(input: unknown) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { error: "Unauthorized" };
+  const session = await verifySession();
+  if (!session) {
+    return { error: "Session expired. Please sign out and sign in again." };
   }
 
   const parsed = removeFromWatchlistSchema.safeParse(input);

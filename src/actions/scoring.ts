@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { verifySession } from "@/lib/auth";
 import { createScoreSchema, overrideCompositeSchema } from "@/lib/validators/scoring";
 import { computeComposite } from "@/lib/scoring/compute";
 import { parseSchemaDefinition } from "@/lib/scoring/schema-parser";
@@ -9,9 +9,9 @@ import { buildProvenance } from "@/lib/scoring/provenance";
 import { revalidatePath } from "next/cache";
 
 export async function createScore(input: unknown) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { error: "Unauthorized" };
+  const session = await verifySession();
+  if (!session) {
+    return { error: "Session expired. Please sign out and sign in again." };
   }
 
   const parsed = createScoreSchema.safeParse(input);
@@ -84,9 +84,9 @@ export async function createScore(input: unknown) {
 }
 
 export async function overrideComposite(input: unknown) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { error: "Unauthorized" };
+  const session = await verifySession();
+  if (!session) {
+    return { error: "Session expired. Please sign out and sign in again." };
   }
 
   const parsed = overrideCompositeSchema.safeParse(input);

@@ -1,14 +1,14 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { verifySession } from "@/lib/auth";
 import { createResearchSchema, updateResearchSchema, deleteResearchSchema } from "@/lib/validators/research";
 import { revalidatePath } from "next/cache";
 
 export async function createResearch(input: unknown) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { error: "Unauthorized" };
+  const session = await verifySession();
+  if (!session) {
+    return { error: "Session expired. Please sign out and sign in again." };
   }
 
   const parsed = createResearchSchema.safeParse(input);
@@ -43,9 +43,9 @@ export async function createResearch(input: unknown) {
 }
 
 export async function updateResearch(input: unknown) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { error: "Unauthorized" };
+  const session = await verifySession();
+  if (!session) {
+    return { error: "Session expired. Please sign out and sign in again." };
   }
 
   const parsed = updateResearchSchema.safeParse(input);
@@ -81,9 +81,9 @@ export async function updateResearch(input: unknown) {
 }
 
 export async function deleteResearch(input: unknown) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { error: "Unauthorized" };
+  const session = await verifySession();
+  if (!session) {
+    return { error: "Session expired. Please sign out and sign in again." };
   }
 
   const parsed = deleteResearchSchema.safeParse(input);
@@ -123,9 +123,9 @@ export async function deleteResearch(input: unknown) {
 }
 
 export async function forceDeleteResearch(input: unknown) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { error: "Unauthorized" };
+  const session = await verifySession();
+  if (!session) {
+    return { error: "Session expired. Please sign out and sign in again." };
   }
 
   const parsed = deleteResearchSchema.safeParse(input);
