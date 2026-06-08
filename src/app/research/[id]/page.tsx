@@ -140,11 +140,9 @@ export default async function ResearchDetailPage({ params }: PageProps) {
                 href={`/scores/${s.id}`}
                 className="flex items-center justify-between rounded-md border p-3 hover:bg-accent/50"
               >
-                <EntityBadge
-                  href={`/scores/${s.id}`}
-                  label={s.framework.name}
-                  variant="score"
-                />
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${"bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"}`}>
+                  {s.framework.name}
+                </span>
                 <span className="text-sm font-mono">
                   {s.manualOverride ? "Override" : s.compositeScore?.toFixed(2) ?? "—"}
                 </span>

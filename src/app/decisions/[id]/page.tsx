@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { Separator } from "@/components/ui/separator";
 import { OutcomeForm } from "@/components/decisions/outcome-form";
 import { EntityBadge } from "@/components/shared/entity-badge";
-import { DecisionCard } from "@/components/decisions/decision-card";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -51,14 +50,24 @@ export default async function DecisionDetailPage({ params }: PageProps) {
       <div>
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">{decision.title}</h1>
-          <DecisionCard
-            id={decision.id}
-            title={decision.title}
-            direction={decision.direction}
-            status={decision.status}
-            outcome={decision.outcome}
-            createdAt={decision.createdAt}
-          />
+          <span className={`text-sm font-semibold ${
+            decision.direction === "bullish" ? "text-green-700 dark:text-green-400"
+            : decision.direction === "bearish" ? "text-red-700 dark:text-red-400"
+            : "text-yellow-700 dark:text-yellow-400"
+          }`}>
+            {decision.direction.charAt(0).toUpperCase() + decision.direction.slice(1)}
+          </span>
+          {decision.status === "open" ? (
+            <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200">Open</span>
+          ) : (
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+              decision.outcome === "correct" ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+              : decision.outcome === "incorrect" ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+              : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+            }`}>
+              {decision.outcome}
+            </span>
+          )}
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
           Created {decision.createdAt.toLocaleDateString()} · By {decision.author.name || decision.author.email}
@@ -81,9 +90,8 @@ export default async function DecisionDetailPage({ params }: PageProps) {
         ) : (
           <div className="space-y-2">
             {decision.researchLinks.map((link) => (
-              <a
+              <div
                 key={link.researchArtifactId}
-                href={`/research/${link.researchArtifact.id}`}
                 className="flex items-center justify-between rounded-md border p-3 hover:bg-accent/50"
               >
                 <EntityBadge
@@ -98,7 +106,7 @@ export default async function DecisionDetailPage({ params }: PageProps) {
                     variant="asset"
                   />
                 )}
-              </a>
+              </div>
             ))}
           </div>
         )}
@@ -112,9 +120,8 @@ export default async function DecisionDetailPage({ params }: PageProps) {
         ) : (
           <div className="space-y-2">
             {decision.scoreLinks.map((link) => (
-              <a
+              <div
                 key={link.scoreId}
-                href={`/scores/${link.score.id}`}
                 className="flex items-center justify-between rounded-md border p-3 hover:bg-accent/50"
               >
                 <EntityBadge
@@ -132,7 +139,7 @@ export default async function DecisionDetailPage({ params }: PageProps) {
                     variant="asset"
                   />
                 </div>
-              </a>
+              </div>
             ))}
           </div>
         )}

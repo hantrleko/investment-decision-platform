@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { EntityBadge } from "@/components/shared/entity-badge";
 
 interface ResearchCardProps {
   id: string;
@@ -28,7 +27,9 @@ export function ResearchCard({ id, title, tags, assetTicker, updatedAt }: Resear
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {assetTicker && (
-          <EntityBadge href={`/assets/${assetTicker}`} label={assetTicker} variant="asset" />
+          <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+            {assetTicker}
+          </span>
         )}
         {tagList.map((tag, i) => (
           <span
