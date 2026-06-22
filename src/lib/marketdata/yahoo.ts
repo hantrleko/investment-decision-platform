@@ -1,12 +1,31 @@
-const YF_QUOTE_URL = "https://query1.finance.yahoo.com/v7/finance/quote";
-const YF_QUOTE_FIELDS = "shortName,regularMarketPrice,regularMarketTime,exchange,sector";
+/**
+ * Yahoo Finance market data provider.
+ * Uses the v8 chart API which is more permissive than the v7 quote endpoint
+ * and does not require authentication headers in most server environments.
+ */
 
-interface YahooQuoteResult {
+const YF_CHART_URL = "https://query2.finance.yahoo.com/v8/finance/chart";
+
+interface YahooChartMeta {
+  symbol?: string;
   shortName?: string;
-  regularMarketPrice?: number;
-  regularMarketTime?: number;
-  exchange?: string;
+  longName?: string;
+  exchangeName?: string;
   sector?: string;
+  industry?: string;
+  regularMarketPrice?: number;
+  chartPreviousClose?: number;
+}
+
+interface YahooChartResult {
+  meta?: YahooChartMeta;
+}
+
+interface YahooChartResponse {
+  chart?: {
+    result?: YahooChartResult[];
+    error?: { code?: string; description?: string };
+  };
 }
 
 interface AssetMetaAndPrice {
@@ -16,13 +35,19 @@ interface AssetMetaAndPrice {
   lastPrice: number | null;
 }
 
-export async function getAssetMetaAndPrice(ticker: string): Promise<AssetMetaAndPrice> {
-  const url = `${YF_QUOTE_URL}?symbols=${encodeURIComponent(ticker)}&fields=${YF_QUOTE_FIELDS}`;
+const FETCH_HEADERS: Record<string, string> = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+  Accept: "application/json",
+};
+
+export async function getAssetMetaAndPrice(
+  ticker: string
+): Promise<AssetMetaAndPrice> {
+  const url = `${YF_CHART_URL}/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
 
   const res = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    },
+    headers: FETCH_HEADERS,
     signal: AbortSignal.timeout(8000),
   });
 
@@ -30,18 +55,24 @@ export async function getAssetMetaAndPrice(ticker: string): Promise<AssetMetaAnd
     throw new Error(`Yahoo Finance API returned ${res.status}`);
   }
 
-  const json = await res.json();
-  const result = json?.quoteResponse?.result?.[0] as YahooQuoteResult | undefined;
+  const json = (await res.json()) as YahooChartResponse;
 
-  if (!result) {
+  if (json.chart?.error) {
+    throw new Error(
+      json.chart.error.description || `No data for ticker "${ticker}"`
+    );
+  }
+
+  const meta = json.chart?.result?.[0]?.meta;
+  if (!meta) {
     throw new Error(`No data returned for ticker "${ticker}"`);
   }
 
   return {
-    name: result.shortName ?? null,
-    exchange: result.exchange ?? null,
-    sector: result.sector ?? null,
-    lastPrice: result.regularMarketPrice ?? null,
+    name: meta.shortName || meta.longName || null,
+    exchange: meta.exchangeName || null,
+    sector: meta.sector || null,
+    lastPrice: meta.regularMarketPrice ?? null,
   };
 }
 

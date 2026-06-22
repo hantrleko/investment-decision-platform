@@ -23,6 +23,9 @@ export async function createAsset(input: unknown) {
     return { error: `Asset with ticker "${data.ticker}" already exists` };
   }
 
+  // Auto-set lastPriceTs when lastPrice is provided but timestamp is missing
+  const lastPriceTs = data.lastPrice != null && !data.lastPriceTs ? new Date() : data.lastPriceTs ?? null;
+
   const asset = await prisma.asset.create({
     data: {
       ticker: data.ticker,
@@ -32,7 +35,7 @@ export async function createAsset(input: unknown) {
       exchange: data.exchange || null,
       notes: data.notes || null,
       lastPrice: data.lastPrice ?? null,
-      lastPriceTs: data.lastPriceTs ?? null,
+      lastPriceTs,
       priceSource: data.priceSource ?? null,
     },
   });

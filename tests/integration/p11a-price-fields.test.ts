@@ -79,6 +79,47 @@ describe("Asset price fields", () => {
     expect(asset.priceSource).toBeNull();
   });
 
+  it("auto-sets lastPriceTs when lastPrice is provided without timestamp (simulating createAsset logic)", async () => {
+    // This mirrors the logic in src/actions/assets.ts:
+    // const lastPriceTs = data.lastPrice != null && !data.lastPriceTs ? new Date() : data.lastPriceTs ?? null;
+    const lastPrice = 150.0;
+    const inputLastPriceTs = undefined;
+    const lastPriceTs = lastPrice != null && !inputLastPriceTs ? new Date() : inputLastPriceTs ?? null;
+
+    const asset = await prisma.asset.create({
+      data: {
+        ticker: "AMZN",
+        name: "Amazon.com Inc.",
+        lastPrice,
+        lastPriceTs,
+        priceSource: "manual",
+      },
+    });
+
+    expect(asset.lastPrice).toBeCloseTo(150.0);
+    expect(asset.lastPriceTs).not.toBeNull();
+    expect(asset.priceSource).toBe("manual");
+  });
+
+  it("does not set lastPriceTs when lastPrice is null", async () => {
+    const lastPrice = null;
+    const inputLastPriceTs = undefined;
+    const lastPriceTs = lastPrice != null && !inputLastPriceTs ? new Date() : inputLastPriceTs ?? null;
+
+    const asset = await prisma.asset.create({
+      data: {
+        ticker: "GOOGL",
+        name: "Alphabet Inc.",
+        lastPrice,
+        lastPriceTs,
+        priceSource: null,
+      },
+    });
+
+    expect(asset.lastPrice).toBeNull();
+    expect(asset.lastPriceTs).toBeNull();
+  });
+
   it("updates price via refresh (yahoo)", async () => {
     const before = await prisma.asset.findUnique({ where: { ticker: "AAPL" } });
     expect(before!.lastPrice).toBeCloseTo(192.53);
