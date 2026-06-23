@@ -57,8 +57,10 @@ export async function ResearchList({ q, tag, page = 1 }: ResearchListPageProps) 
           description={
             q
               ? "Try a different search term"
-              : "Create your first research artifact to get started"
+              : "Document your investment research — earnings notes, thesis write-ups, sector analysis"
           }
+          actionLabel={q ? undefined : "New Research"}
+          actionHref={q ? undefined : "/research/new"}
         />
       ) : (
         <div className="grid gap-3">

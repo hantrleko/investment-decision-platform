@@ -90,7 +90,9 @@ export default async function AssetsPage({ searchParams }: PageProps) {
         {assets.length === 0 ? (
           <EmptyState
             title={q ? "No assets found" : "No assets yet"}
-            description={q ? "Try a different search term" : "Add your first asset to get started"}
+            description={q ? "Try a different search term" : "Add your first asset to start scoring and tracking decisions"}
+            actionLabel={q ? undefined : "Add Asset"}
+            actionHref={q ? undefined : "/assets/new"}
           />
         ) : (
           <table className="w-full text-sm">

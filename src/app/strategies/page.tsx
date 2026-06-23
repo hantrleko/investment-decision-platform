@@ -53,6 +53,11 @@ export default async function StrategiesPage() {
         </Link>
       </div>
 
+      <p className="text-sm text-muted-foreground">
+        Run built-in strategies to generate explainable recommendations from your framework scores.
+        Configure thresholds, enable/disable strategies, and track which configs produce the best outcomes.
+      </p>
+
       {/* Strategy summary table (only if recommendations exist) */}
       {strategiesWithRecs.length > 0 && (
         <section>
@@ -136,6 +141,8 @@ export default async function StrategiesPage() {
           <EmptyState
             title="No assets available"
             description="Create assets first before running strategies."
+            actionLabel="Add Asset"
+            actionHref="/assets/new"
           />
         ) : activeStrategies.length === 0 ? (
           <EmptyState
@@ -153,7 +160,7 @@ export default async function StrategiesPage() {
         {recentRecommendations.length === 0 ? (
           <EmptyState
             title="No recommendations yet"
-            description="Run a strategy to generate a recommendation."
+            description="Run a strategy above to generate an explainable recommendation."
           />
         ) : (
           <div className="space-y-2">

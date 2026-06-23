@@ -67,6 +67,11 @@ export default async function StrategyReviewPage({ searchParams }: PageProps) {
         </Link>
       </div>
 
+      <p className="text-sm text-muted-foreground">
+        Review how each strategy performs: how often recommendations convert to decisions, and how those decisions turn out.
+        Use filters to isolate results by strategy, asset, recommendation level, or experiment label.
+      </p>
+
       {/* Filters */}
       <ReviewFiltersComponent
         strategies={strategies.map((s) => ({ slug: s.slug, name: s.name }))}

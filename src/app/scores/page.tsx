@@ -26,7 +26,9 @@ export default async function ScoresPage() {
       {scores.length === 0 ? (
         <EmptyState
           title="No scores yet"
-          description="Score an asset using a framework to see results here"
+          description="Score an asset using a framework to quantify your investment thesis"
+          actionLabel="Score an Asset"
+          actionHref="/scores/new"
         />
       ) : (
         <div className="space-y-2">

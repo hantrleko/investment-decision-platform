@@ -94,7 +94,7 @@ export default async function DecisionsPage({ searchParams }: PageProps) {
       {decisions.length === 0 ? (
         <EmptyState
           title="No decisions yet"
-          description="Record your first investment decision above"
+          description="Record your first investment decision above to start tracking outcomes"
         />
       ) : (
         <div className="space-y-2">
