@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { WatchlistTable } from "@/components/assets/watchlist-table";
+import { WatchlistRefreshButton } from "@/components/assets/watchlist-refresh-button";
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/shared/empty-state";
 
@@ -62,7 +63,10 @@ export default async function AssetsPage({ searchParams }: PageProps) {
 
       {/* Watchlist */}
       <section>
-        <h2 className="text-lg font-semibold mb-3">Watchlist</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold">Watchlist</h2>
+          <WatchlistRefreshButton count={watchlistEntries.length} />
+        </div>
         <WatchlistTable entries={watchlistEntries.map((e) => ({
           assetTicker: e.assetTicker,
           asset: {
