@@ -220,6 +220,16 @@ async function main() {
       create: { ...sc, active: true },
     });
     console.log(`Seeded strategy config: ${created.name} (${created.slug})`);
+
+    // Create initial config history record
+    await prisma.strategyConfigHistory.create({
+      data: {
+        strategySlug: sc.slug,
+        strategyName: sc.name,
+        configSnapshot: sc.config,
+        note: "Initial default configuration",
+      },
+    });
   }
 
   console.log("Seed complete.");

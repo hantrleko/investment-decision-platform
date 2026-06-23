@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { prisma } from "@/lib/db";
 import { getStrategyConfig } from "@/actions/strategies";
 import { getStrategyReviewDataForSlug } from "@/actions/strategy-review";
 import { StrategyConfigForm } from "@/components/strategies/strategy-config-form";
@@ -32,6 +33,13 @@ export default async function StrategyManagePage({ params }: PageProps) {
   const reviewData = await getStrategyReviewDataForSlug(slug);
   const summary = reviewData.summary;
   const items = reviewData.items.slice(0, 10); // Recent 10
+
+  // Fetch config history
+  const configHistory = await prisma.strategyConfigHistory.findMany({
+    where: { strategySlug: slug },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -176,6 +184,56 @@ export default async function StrategyManagePage({ params }: PageProps) {
           {JSON.stringify(strategy.config, null, 2)}
         </pre>
       </section>
+
+      <Separator />
+
+      {/* Config history */}
+      {configHistory.length > 0 && (
+        <section>
+          <h2 className="text-lg font-semibold mb-3">Config History</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-muted-foreground">
+                  <th className="pb-2 pr-4 font-medium">Date</th>
+                  <th className="pb-2 pr-4 font-medium">Experiment</th>
+                  <th className="pb-2 pr-4 font-medium">Note</th>
+                  <th className="pb-2 pr-4 font-medium">Config</th>
+                </tr>
+              </thead>
+              <tbody>
+                {configHistory.map((h) => (
+                  <tr key={h.id} className="border-b last:border-0">
+                    <td className="py-2 pr-4 text-xs text-muted-foreground">
+                      {h.createdAt.toLocaleString()}
+                    </td>
+                    <td className="py-2 pr-4 text-xs">
+                      {h.experimentLabel ? (
+                        <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                          {h.experimentLabel}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="py-2 pr-4 text-xs text-muted-foreground">
+                      {h.note || "—"}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <details className="text-xs">
+                        <summary className="cursor-pointer text-primary hover:underline">view JSON</summary>
+                        <pre className="mt-1 rounded-md border bg-muted/50 p-2 text-xs overflow-x-auto">
+                          {JSON.stringify(JSON.parse(h.configSnapshot), null, 2)}
+                        </pre>
+                      </details>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       <div className="flex gap-3">
         <Link href="/strategies">

@@ -24,6 +24,7 @@ export async function getStrategyReviewData(filters?: ReviewFilters): Promise<Re
       recommendation: true,
       createdAt: true,
       convertedDecisionId: true,
+      configHistoryId: true,
       asset: { select: { name: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -43,6 +44,18 @@ export async function getStrategyReviewData(filters?: ReviewFilters): Promise<Re
     : [];
 
   const decisionMap = new Map(decisions.map((d) => [d.id, d]));
+
+  // Fetch config history for experiment labels
+  const historyIds = recs
+    .map((r) => r.configHistoryId)
+    .filter((id): id is string => id != null);
+  const histories = historyIds.length > 0
+    ? await prisma.strategyConfigHistory.findMany({
+        where: { id: { in: historyIds } },
+        select: { id: true, experimentLabel: true },
+      })
+    : [];
+  const historyMap = new Map(histories.map((h) => [h.id, h]));
 
   // Fetch strategy configs for active status
   const configs = await prisma.strategyConfig.findMany();
@@ -100,6 +113,7 @@ export async function getStrategyReviewData(filters?: ReviewFilters): Promise<Re
   // Build review items
   const allItems: ReviewItem[] = recs.map((r) => {
     const dec = r.convertedDecisionId ? decisionMap.get(r.convertedDecisionId) : null;
+    const hist = r.configHistoryId ? historyMap.get(r.configHistoryId) : null;
     return {
       id: r.id,
       strategySlug: r.strategySlug,
@@ -113,6 +127,8 @@ export async function getStrategyReviewData(filters?: ReviewFilters): Promise<Re
       decisionStatus: dec?.status ?? null,
       decisionDirection: dec?.direction ?? null,
       decisionOutcome: dec?.outcome ?? null,
+      configHistoryId: r.configHistoryId,
+      experimentLabel: hist?.experimentLabel ?? null,
     };
   });
 

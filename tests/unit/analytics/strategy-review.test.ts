@@ -176,18 +176,21 @@ describe("applyFilters", () => {
       assetTicker: "AAPL", assetName: "Apple Inc.", recommendation: "Buy",
       createdAt: new Date(), converted: true, decisionId: "d1",
       decisionStatus: "closed", decisionDirection: "bullish", decisionOutcome: "correct",
+      configHistoryId: "h1", experimentLabel: "exp-2026-06",
     },
     {
       id: "r2", strategySlug: "trend-confirmed", strategyName: "Trend Confirmed",
       assetTicker: "NVDA", assetName: "NVIDIA", recommendation: "Strong Buy",
       createdAt: new Date(), converted: false, decisionId: null,
       decisionStatus: null, decisionDirection: null, decisionOutcome: null,
+      configHistoryId: "h2", experimentLabel: null,
     },
     {
       id: "r3", strategySlug: "valuation-first", strategyName: "Valuation First",
       assetTicker: "AAPL", assetName: "Apple Inc.", recommendation: "Watch",
       createdAt: new Date(), converted: true, decisionId: "d2",
       decisionStatus: "open", decisionDirection: "neutral", decisionOutcome: null,
+      configHistoryId: null, experimentLabel: null,
     },
   ];
 
@@ -251,5 +254,38 @@ describe("applyFilters", () => {
       convertedOnly: true,
     });
     expect(filtered.length).toBe(0);
+  });
+
+  it("filters by experiment label", () => {
+    const filtered = applyFilters(items, { experimentLabel: "exp-2026-06" });
+    expect(filtered.length).toBe(1);
+    expect(filtered[0].id).toBe("r1");
+  });
+
+  it("filters by config history id", () => {
+    const filtered = applyFilters(items, { configHistoryId: "h1" });
+    expect(filtered.length).toBe(1);
+    expect(filtered[0].id).toBe("r1");
+  });
+
+  it("experiment label filter excludes items without label", () => {
+    const filtered = applyFilters(items, { experimentLabel: "nonexistent" });
+    expect(filtered.length).toBe(0);
+  });
+
+  it("config history id null matches items without history", () => {
+    // r3 has configHistoryId: null
+    const filtered = applyFilters(items, { configHistoryId: "h2" });
+    expect(filtered.length).toBe(1);
+    expect(filtered[0].id).toBe("r2");
+  });
+
+  it("combines experiment label with strategy filter", () => {
+    const filtered = applyFilters(items, {
+      strategySlug: "valuation-first",
+      experimentLabel: "exp-2026-06",
+    });
+    expect(filtered.length).toBe(1);
+    expect(filtered[0].id).toBe("r1");
   });
 });

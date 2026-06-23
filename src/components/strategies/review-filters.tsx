@@ -16,12 +16,13 @@ interface AssetOption {
 interface ReviewFiltersProps {
   strategies: StrategyOption[];
   assets: AssetOption[];
+  experimentLabels?: string[];
 }
 
 const REC_LEVELS = ["Strong Buy", "Buy", "Watch", "Review", "Avoid", "Reject"];
 const OUTCOMES = ["correct", "incorrect", "partial"];
 
-export function ReviewFilters({ strategies, assets }: ReviewFiltersProps) {
+export function ReviewFilters({ strategies, assets, experimentLabels = [] }: ReviewFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -111,6 +112,22 @@ export function ReviewFilters({ strategies, assets }: ReviewFiltersProps) {
           ))}
         </select>
       </div>
+
+      {experimentLabels.length > 0 && (
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Experiment</label>
+          <select
+            className={selectClass}
+            value={searchParams.get("experiment") ?? "all"}
+            onChange={(e) => updateFilter("experiment", e.target.value)}
+          >
+            <option value="all">All experiments</option>
+            {experimentLabels.map((label) => (
+              <option key={label} value={label}>{label}</option>
+            ))}
+          </select>
+        </div>
+      )}
     </div>
   );
 }

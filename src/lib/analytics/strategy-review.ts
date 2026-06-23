@@ -37,6 +37,8 @@ export interface ReviewItem {
   decisionStatus: string | null;
   decisionDirection: string | null;
   decisionOutcome: string | null;
+  configHistoryId: string | null;
+  experimentLabel: string | null;
 }
 
 export interface ReviewData {
@@ -52,6 +54,8 @@ export interface ReviewFilters {
   convertedOnly?: boolean;
   unconvertedOnly?: boolean;
   outcome?: string;
+  experimentLabel?: string;
+  configHistoryId?: string;
 }
 
 export function computeConversionRate(total: number, converted: number): number {
@@ -158,6 +162,8 @@ export function applyFilters(
       if (!item.converted || !item.decisionOutcome) return false;
       if (item.decisionOutcome !== filters.outcome) return false;
     }
+    if (filters.experimentLabel && item.experimentLabel !== filters.experimentLabel) return false;
+    if (filters.configHistoryId && item.configHistoryId !== filters.configHistoryId) return false;
     return true;
   });
 }

@@ -35,6 +35,7 @@ export default async function StrategyReviewPage({ searchParams }: PageProps) {
     convertedOnly: sp.converted === "yes",
     unconvertedOnly: sp.converted === "no",
     outcome: typeof sp.outcome === "string" ? sp.outcome : undefined,
+    experimentLabel: typeof sp.experiment === "string" ? sp.experiment : undefined,
   };
 
   const data = await getStrategyReviewData(filters);
@@ -50,6 +51,13 @@ export default async function StrategyReviewPage({ searchParams }: PageProps) {
     take: 100,
   });
 
+  // Fetch experiment labels for filter dropdown
+  const experimentLabels = await prisma.strategyConfigHistory.findMany({
+    where: { experimentLabel: { not: null } },
+    select: { experimentLabel: true },
+    distinct: ["experimentLabel"],
+  });
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -63,6 +71,7 @@ export default async function StrategyReviewPage({ searchParams }: PageProps) {
       <ReviewFiltersComponent
         strategies={strategies.map((s) => ({ slug: s.slug, name: s.name }))}
         assets={assets.map((a) => ({ ticker: a.ticker, name: a.name }))}
+        experimentLabels={experimentLabels.map((e) => e.experimentLabel!).filter(Boolean)}
       />
 
       {/* Strategy summary metrics table */}
@@ -165,6 +174,7 @@ export default async function StrategyReviewPage({ searchParams }: PageProps) {
                   <th className="pb-2 pr-4 font-medium">Asset</th>
                   <th className="pb-2 pr-4 font-medium">Level</th>
                   <th className="pb-2 pr-4 font-medium">Date</th>
+                  <th className="pb-2 pr-4 font-medium">Experiment</th>
                   <th className="pb-2 pr-4 font-medium">Converted</th>
                   <th className="pb-2 pr-4 font-medium">Decision Status</th>
                   <th className="pb-2 pr-4 font-medium">Outcome</th>
@@ -188,6 +198,15 @@ export default async function StrategyReviewPage({ searchParams }: PageProps) {
                     </td>
                     <td className="py-2 pr-4 text-xs text-muted-foreground">
                       {item.createdAt.toLocaleDateString()}
+                    </td>
+                    <td className="py-2 pr-4 text-xs">
+                      {item.experimentLabel ? (
+                        <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                          {item.experimentLabel}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </td>
                     <td className="py-2 pr-4">
                       {item.converted ? (

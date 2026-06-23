@@ -86,6 +86,8 @@ export async function getStrategyConfig(slug: string): Promise<StrategyInfo | nu
 export async function updateStrategyConfig(input: {
   slug: string;
   config: Record<string, string>;
+  note?: string;
+  experimentLabel?: string;
 }) {
   const session = await verifySession();
   if (!session) {
@@ -115,17 +117,30 @@ export async function updateStrategyConfig(input: {
     }
   }
 
+  const configJson = JSON.stringify(newConfig);
+
   const updated = await prisma.strategyConfig.update({
     where: { slug: input.slug },
     data: {
-      config: JSON.stringify(newConfig),
+      config: configJson,
       version: strategy.version,
+    },
+  });
+
+  // Create config history record
+  const history = await prisma.strategyConfigHistory.create({
+    data: {
+      strategySlug: input.slug,
+      strategyName: strategy.name,
+      configSnapshot: configJson,
+      note: input.note || null,
+      experimentLabel: input.experimentLabel || null,
     },
   });
 
   revalidatePath("/strategies");
   revalidatePath(`/strategies/${input.slug}`);
-  return { data: updated };
+  return { data: updated, historyId: history.id };
 }
 
 export async function toggleStrategyActive(input: { slug: string }) {
@@ -174,6 +189,12 @@ export async function runStrategy(input: { strategySlug: string; assetTicker: st
     ? JSON.parse(dbConfig.config)
     : strategy.defaultConfig;
   const version = dbConfig?.version ?? strategy.version;
+
+  // Find the most recent config history record for this strategy
+  const latestHistory = await prisma.strategyConfigHistory.findFirst({
+    where: { strategySlug: input.strategySlug },
+    orderBy: { createdAt: "desc" },
+  });
 
   const asset = await prisma.asset.findUnique({
     where: { ticker: input.assetTicker },
@@ -233,13 +254,14 @@ export async function runStrategy(input: { strategySlug: string; assetTicker: st
   // Run the strategy with config
   const output: StrategyOutput = strategy.evaluate(strategyInput, config);
 
-  // Save the recommendation with config snapshot
+  // Save the recommendation with config snapshot + history link
   const recommendation = await prisma.recommendation.create({
     data: {
       strategySlug: strategy.slug,
       strategyName: strategy.name,
       strategyVersion: version,
       configSnapshot: JSON.stringify(config),
+      configHistoryId: latestHistory?.id ?? null,
       assetTicker: input.assetTicker,
       recommendation: output.recommendation,
       reasoning: output.reasoning,

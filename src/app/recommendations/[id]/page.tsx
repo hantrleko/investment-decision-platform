@@ -69,6 +69,14 @@ export default async function RecommendationDetailPage({ params }: PageProps) {
       })
     : null;
 
+  // Fetch config history record if linked
+  const configHistory = rec.configHistoryId
+    ? await prisma.strategyConfigHistory.findUnique({
+        where: { id: rec.configHistoryId },
+        select: { id: true, note: true, experimentLabel: true, createdAt: true },
+      })
+    : null;
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Header */}
@@ -155,6 +163,25 @@ export default async function RecommendationDetailPage({ params }: PageProps) {
               <span className="text-sm font-medium">Version: </span>
               <span className="text-sm font-mono">{rec.strategyVersion}</span>
             </div>
+            {configHistory && (
+              <div className="rounded-md border p-3 space-y-1">
+                <p className="text-sm font-medium">Config History Record</p>
+                <p className="text-xs text-muted-foreground">
+                  Saved: {configHistory.createdAt.toLocaleString()}
+                </p>
+                {configHistory.experimentLabel && (
+                  <p className="text-xs">
+                    <span className="text-muted-foreground">Experiment: </span>
+                    <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                      {configHistory.experimentLabel}
+                    </span>
+                  </p>
+                )}
+                {configHistory.note && (
+                  <p className="text-xs text-muted-foreground italic">"{configHistory.note}"</p>
+                )}
+              </div>
+            )}
             {configSnapshot && (
               <div>
                 <span className="text-sm font-medium">Config Snapshot:</span>

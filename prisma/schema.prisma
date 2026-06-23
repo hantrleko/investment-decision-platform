@@ -157,12 +157,25 @@ model StrategyConfig {
   updatedAt   DateTime @updatedAt
 }
 
+model StrategyConfigHistory {
+  id              String   @id @default(cuid())
+  strategySlug    String
+  strategyName    String
+  configSnapshot  String
+  note            String?
+  experimentLabel String?
+  createdAt       DateTime @default(now())
+
+  @@index([strategySlug])
+}
+
 model Recommendation {
   id              String   @id @default(cuid())
   strategySlug    String
   strategyName    String
   strategyVersion String?
   configSnapshot  String?
+  configHistoryId String?
   assetTicker     String
   asset           Asset    @relation(fields: [assetTicker], references: [ticker], onDelete: Cascade)
   recommendation  String
