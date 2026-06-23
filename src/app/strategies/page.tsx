@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/db";
 import { getAvailableStrategies } from "@/actions/strategies";
+import { getStrategyReviewData } from "@/actions/strategy-review";
 import { StrategyRunner } from "@/components/strategies/strategy-runner";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 
 export default async function StrategiesPage() {
@@ -25,6 +27,9 @@ export default async function StrategiesPage() {
     },
   });
 
+  // Fetch review summary for the overview table
+  const reviewData = await getStrategyReviewData();
+
   const REC_STYLES: Record<string, string> = {
     "Strong Buy": "text-green-700 dark:text-green-400 font-bold",
     Buy: "text-green-600 dark:text-green-400",
@@ -36,10 +41,58 @@ export default async function StrategiesPage() {
 
   // Only active strategies can be run
   const activeStrategies = strategies.filter((s) => s.active);
+  // Strategies with at least 1 recommendation for the summary table
+  const strategiesWithRecs = reviewData.summaries.filter((s) => s.totalRecommendations > 0);
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold">Strategy Engine</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Strategy Engine</h1>
+        <Link href="/strategies/review">
+          <Button variant="outline" size="sm">Review & Analytics →</Button>
+        </Link>
+      </div>
+
+      {/* Strategy summary table (only if recommendations exist) */}
+      {strategiesWithRecs.length > 0 && (
+        <section>
+          <h2 className="text-lg font-semibold mb-3">Summary</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-muted-foreground">
+                  <th className="pb-2 pr-4 font-medium">Strategy</th>
+                  <th className="pb-2 pr-4 font-medium text-right">Recs</th>
+                  <th className="pb-2 pr-4 font-medium text-right">Converted</th>
+                  <th className="pb-2 pr-4 font-medium text-right">Conv. Rate</th>
+                  <th className="pb-2 pr-4 font-medium text-right">Closed</th>
+                  <th className="pb-2 pr-4 font-medium text-right">Correct</th>
+                  <th className="pb-2 pr-4 font-medium text-right">Incorrect</th>
+                </tr>
+              </thead>
+              <tbody>
+                {strategiesWithRecs.map((s) => (
+                  <tr key={s.slug} className="border-b last:border-0">
+                    <td className="py-2 pr-4">
+                      <Link href={`/strategies/${s.slug}`} className="text-primary hover:underline">
+                        {s.name}
+                      </Link>
+                    </td>
+                    <td className="py-2 pr-4 text-right font-mono">{s.totalRecommendations}</td>
+                    <td className="py-2 pr-4 text-right font-mono">{s.convertedCount}</td>
+                    <td className="py-2 pr-4 text-right font-mono">
+                      {(s.conversionRate * 100).toFixed(0)}%
+                    </td>
+                    <td className="py-2 pr-4 text-right font-mono">{s.closedDecisionsCount}</td>
+                    <td className="py-2 pr-4 text-right font-mono text-green-600 dark:text-green-400">{s.correctCount}</td>
+                    <td className="py-2 pr-4 text-right font-mono text-red-600 dark:text-red-400">{s.incorrectCount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {/* Strategy management cards */}
       <section>

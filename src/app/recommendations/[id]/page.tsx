@@ -61,6 +61,14 @@ export default async function RecommendationDetailPage({ params }: PageProps) {
       })
     : [];
 
+  // Fetch linked decision if converted
+  const linkedDecision = rec.convertedDecisionId
+    ? await prisma.decision.findUnique({
+        where: { id: rec.convertedDecisionId },
+        select: { id: true, title: true, status: true, direction: true, outcome: true, outcomeNote: true, outcomeDate: true },
+      })
+    : null;
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Header */}
@@ -212,11 +220,61 @@ export default async function RecommendationDetailPage({ params }: PageProps) {
       {/* Convert to Decision */}
       <section>
         <h2 className="text-lg font-semibold mb-2">Decision Integration</h2>
-        <ConvertToDecisionButton
-          recommendationId={rec.id}
-          alreadyConverted={!!rec.convertedDecisionId}
-          convertedDecisionId={rec.convertedDecisionId ?? undefined}
-        />
+        {linkedDecision ? (
+          <div className="space-y-3">
+            <div className="rounded-md border p-4 space-y-2">
+              <Link href={`/decisions/${linkedDecision.id}`} className="text-sm font-medium text-primary hover:underline">
+                {linkedDecision.title}
+              </Link>
+              <div className="flex flex-wrap gap-4 text-sm">
+                <span>
+                  <span className="text-muted-foreground">Direction: </span>
+                  <span className="font-medium">{linkedDecision.direction}</span>
+                </span>
+                <span>
+                  <span className="text-muted-foreground">Status: </span>
+                  <span className={`font-medium ${
+                    linkedDecision.status === "closed"
+                      ? "text-muted-foreground"
+                      : "text-blue-600 dark:text-blue-400"
+                  }`}>
+                    {linkedDecision.status}
+                  </span>
+                </span>
+                {linkedDecision.outcome && (
+                  <span>
+                    <span className="text-muted-foreground">Outcome: </span>
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                      linkedDecision.outcome === "correct"
+                        ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+                        : linkedDecision.outcome === "incorrect"
+                        ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+                        : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
+                    }`}>
+                      {linkedDecision.outcome}
+                    </span>
+                  </span>
+                )}
+                {linkedDecision.outcomeDate && (
+                  <span className="text-xs text-muted-foreground">
+                    Closed {linkedDecision.outcomeDate.toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+              {linkedDecision.outcomeNote && (
+                <p className="text-sm text-muted-foreground italic">
+                  "{linkedDecision.outcomeNote}"
+                </p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <ConvertToDecisionButton
+            recommendationId={rec.id}
+            alreadyConverted={!!rec.convertedDecisionId}
+            convertedDecisionId={rec.convertedDecisionId ?? undefined}
+          />
+        )}
       </section>
     </div>
   );
