@@ -3,6 +3,7 @@ import {
   listStrategies,
   getStrategy,
   type StrategyInput,
+  type StrategyConfig,
 } from "@/lib/strategies";
 
 // ─── Strategy Registry ─────────────────────────────────────────
@@ -358,5 +359,202 @@ describe("Strategy edge cases", () => {
       expect(result.reasoning.length).toBeGreaterThan(50);
       expect(result.inputSignals.length).toBeGreaterThan(0);
     }
+  });
+});
+
+// ─── Config-driven behavior ───────────────────────────────────
+
+describe("Strategy config-driven evaluation", () => {
+  it("each strategy has defaultConfig and configSchema", () => {
+    for (const s of listStrategies()) {
+      expect(s.defaultConfig).toBeDefined();
+      expect(typeof s.defaultConfig).toBe("object");
+      expect(s.configSchema).toBeDefined();
+      expect(Array.isArray(s.configSchema)).toBe(true);
+      expect(s.configSchema.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("Valuation First respects custom strongBuyThreshold", () => {
+    const strategy = getStrategy("valuation-first")!;
+    const input: StrategyInput = {
+      assetTicker: "AAPL",
+      scores: [{
+        id: "s1",
+        frameworkSlug: "valuation",
+        frameworkName: "Valuation",
+        compositeScore: 6.5,
+        manualOverride: false,
+        factorScores: {},
+        scoredAt: new Date(),
+      }],
+      researchArtifacts: [],
+    };
+    // Default strong buy is 7.5, so 6.5 → Buy
+    const defaultResult = strategy.evaluate(input);
+    expect(defaultResult.recommendation).toBe("Buy");
+
+    // Lower threshold to 6.0 → 6.5 should now be Strong Buy
+    const customConfig: StrategyConfig = { strongBuyThreshold: 6.0 };
+    const customResult = strategy.evaluate(input, customConfig);
+    expect(customResult.recommendation).toBe("Strong Buy");
+  });
+
+  it("Valuation First respects custom buyThreshold", () => {
+    const strategy = getStrategy("valuation-first")!;
+    const input: StrategyInput = {
+      assetTicker: "AAPL",
+      scores: [{
+        id: "s1",
+        frameworkSlug: "valuation",
+        frameworkName: "Valuation",
+        compositeScore: 5.0,
+        manualOverride: false,
+        factorScores: {},
+        scoredAt: new Date(),
+      }],
+      researchArtifacts: [],
+    };
+    // Default buy is 6.0, so 5.0 → Watch
+    const defaultResult = strategy.evaluate(input);
+    expect(defaultResult.recommendation).toBe("Watch");
+
+    // Lower buy threshold to 4.5 → 5.0 should now be Buy
+    const customConfig: StrategyConfig = { buyThreshold: 4.5 };
+    const customResult = strategy.evaluate(input, customConfig);
+    expect(customResult.recommendation).toBe("Buy");
+  });
+
+  it("Trend Confirmed respects custom buyThreshold", () => {
+    const strategy = getStrategy("trend-confirmed")!;
+    const input: StrategyInput = {
+      assetTicker: "NVDA",
+      scores: [{
+        id: "s1",
+        frameworkSlug: "trend",
+        frameworkName: "Trend",
+        compositeScore: 6.0,
+        manualOverride: false,
+        factorScores: { momentum_signal: { value: 5 }, price_structure: { value: 5 } },
+        scoredAt: new Date(),
+      }],
+      researchArtifacts: [],
+    };
+    // Default buy is 7.0, so 6.0 → Watch
+    const defaultResult = strategy.evaluate(input);
+    expect(defaultResult.recommendation).toBe("Watch");
+
+    // Lower buy threshold to 5.0 → 6.0 should now be Buy
+    const customConfig: StrategyConfig = { buyThreshold: 5.0 };
+    const customResult = strategy.evaluate(input, customConfig);
+    expect(customResult.recommendation).toBe("Buy");
+  });
+
+  it("Multi-Signal Gate respects custom minScores", () => {
+    const strategy = getStrategy("multi-signal-gate")!;
+    const input: StrategyInput = {
+      assetTicker: "MSFT",
+      scores: [{
+        id: "s1",
+        frameworkSlug: "valuation",
+        frameworkName: "Valuation",
+        compositeScore: 8.0,
+        manualOverride: false,
+        factorScores: {},
+        scoredAt: new Date(),
+      }],
+      researchArtifacts: [],
+    };
+    // Default minScores is 2, so 1 score → Review
+    const defaultResult = strategy.evaluate(input);
+    expect(defaultResult.recommendation).toBe("Review");
+
+    // Lower minScores to 1 → should now evaluate
+    const customConfig: StrategyConfig = { minScores: 1 };
+    const customResult = strategy.evaluate(input, customConfig);
+    expect(customResult.recommendation).not.toBe("Review");
+  });
+
+  it("Multi-Signal Gate respects custom buyAvg threshold", () => {
+    const strategy = getStrategy("multi-signal-gate")!;
+    const input: StrategyInput = {
+      assetTicker: "MSFT",
+      scores: [
+        { id: "s1", frameworkSlug: "valuation", frameworkName: "Valuation", compositeScore: 5.5, manualOverride: false, factorScores: {}, scoredAt: new Date() },
+        { id: "s2", frameworkSlug: "trend", frameworkName: "Trend", compositeScore: 5.5, manualOverride: false, factorScores: {}, scoredAt: new Date() },
+      ],
+      researchArtifacts: [],
+    };
+    // avg=5.5, min=5.5 → Watch with defaults (buyAvg=6.0)
+    const defaultResult = strategy.evaluate(input);
+    expect(defaultResult.recommendation).toBe("Watch");
+
+    // Lower buyAvg to 5.0, buyMin to 4.0 → should be Buy
+    const customConfig: StrategyConfig = { buyAvg: 5.0, buyMin: 4.0 };
+    const customResult = strategy.evaluate(input, customConfig);
+    expect(customResult.recommendation).toBe("Buy");
+  });
+
+  it("partial config merges with defaults", () => {
+    const strategy = getStrategy("valuation-first")!;
+    const input: StrategyInput = {
+      assetTicker: "AAPL",
+      scores: [{
+        id: "s1",
+        frameworkSlug: "valuation",
+        frameworkName: "Valuation",
+        compositeScore: 6.0,
+        manualOverride: false,
+        factorScores: {},
+        scoredAt: new Date(),
+      }],
+      researchArtifacts: [],
+    };
+    // Only override strongBuyThreshold, rest should use defaults
+    const partialConfig: StrategyConfig = { strongBuyThreshold: 100 };
+    const result = strategy.evaluate(input, partialConfig);
+    // buyThreshold still 6.0 from defaults → 6.0 should be Buy
+    expect(result.recommendation).toBe("Buy");
+  });
+
+  it("rules triggered reflect custom thresholds in rule text", () => {
+    const strategy = getStrategy("valuation-first")!;
+    const input: StrategyInput = {
+      assetTicker: "AAPL",
+      scores: [{
+        id: "s1",
+        frameworkSlug: "valuation",
+        frameworkName: "Valuation",
+        compositeScore: 6.0,
+        manualOverride: false,
+        factorScores: {},
+        scoredAt: new Date(),
+      }],
+      researchArtifacts: [],
+    };
+    const customConfig: StrategyConfig = { strongBuyThreshold: 7.5, buyThreshold: 5.0, watchThreshold: 4.5, reviewThreshold: 3.0 };
+    const result = strategy.evaluate(input, customConfig);
+    // Should trigger rule "composite >= 5" (custom buy threshold)
+    expect(result.rulesTriggered.some((r) => r.rule.includes(">= 5"))).toBe(true);
+  });
+
+  it("no config argument uses built-in defaults", () => {
+    const strategy = getStrategy("valuation-first")!;
+    const input: StrategyInput = {
+      assetTicker: "AAPL",
+      scores: [{
+        id: "s1",
+        frameworkSlug: "valuation",
+        frameworkName: "Valuation",
+        compositeScore: 7.5,
+        manualOverride: false,
+        factorScores: {},
+        scoredAt: new Date(),
+      }],
+      researchArtifacts: [],
+    };
+    const result = strategy.evaluate(input);
+    expect(result.recommendation).toBe("Strong Buy");
+    expect(result.rulesTriggered.some((r) => r.rule.includes(">= 7.5"))).toBe(true);
   });
 });

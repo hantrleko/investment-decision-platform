@@ -34,25 +34,44 @@ export default async function StrategiesPage() {
     Reject: "text-red-700 dark:text-red-500 font-bold",
   };
 
+  // Only active strategies can be run
+  const activeStrategies = strategies.filter((s) => s.active);
+
   return (
     <div className="space-y-8">
       <h1 className="text-2xl font-bold">Strategy Engine</h1>
 
-      {/* Strategy descriptions */}
+      {/* Strategy management cards */}
       <section>
         <h2 className="text-lg font-semibold mb-3">Available Strategies</h2>
         <div className="grid gap-3 sm:grid-cols-3">
           {strategies.map((s) => (
-            <div key={s.slug} className="rounded-lg border p-4">
-              <h3 className="text-sm font-semibold">{s.name}</h3>
-              <p className="mt-1 text-xs text-muted-foreground">{s.description}</p>
+            <Link
+              key={s.slug}
+              href={`/strategies/${s.slug}`}
+              className="rounded-lg border p-4 hover:bg-accent/50 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold">{s.name}</h3>
+                <span
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                    s.active
+                      ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {s.active ? "Active" : "Inactive"}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{s.description}</p>
               <p className="mt-2 text-xs text-muted-foreground">v{s.version}</p>
               {s.requiredFrameworkSlugs.length > 0 && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   Requires: {s.requiredFrameworkSlugs.join(", ")}
                 </p>
               )}
-            </div>
+              <p className="mt-2 text-xs text-primary hover:underline">Configure →</p>
+            </Link>
           ))}
         </div>
       </section>
@@ -65,8 +84,13 @@ export default async function StrategiesPage() {
             title="No assets available"
             description="Create assets first before running strategies."
           />
+        ) : activeStrategies.length === 0 ? (
+          <EmptyState
+            title="No active strategies"
+            description="Enable a strategy from the management page to run it."
+          />
         ) : (
-          <StrategyRunner strategies={strategies} assets={assets} />
+          <StrategyRunner strategies={activeStrategies} assets={assets} />
         )}
       </section>
 

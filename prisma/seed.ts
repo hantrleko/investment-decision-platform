@@ -161,6 +161,67 @@ async function main() {
     console.log(`Seeded framework: ${created.name} (${created.slug})`);
   }
 
+  // Seed default strategy configs
+  const strategyConfigs = [
+    {
+      slug: "valuation-first",
+      name: "Valuation First",
+      description:
+        "Prioritizes the Valuation framework score. Requires a Valuation score to run. Strong scores with quality/moat support produce Buy signals.",
+      version: "1.0.0",
+      config: JSON.stringify({
+        strongBuyThreshold: 7.5,
+        buyThreshold: 6.0,
+        watchThreshold: 4.5,
+        reviewThreshold: 3.0,
+        researchSupportCount: 2,
+      }),
+    },
+    {
+      slug: "trend-confirmed",
+      name: "Trend Confirmed",
+      description:
+        "Uses the Trend framework as primary signal. Requires a Trend score. Looks for momentum and price structure alignment.",
+      version: "1.0.0",
+      config: JSON.stringify({
+        buyThreshold: 7.0,
+        watchThreshold: 5.5,
+        reviewThreshold: 3.5,
+        momentumConfirm: 7,
+        priceStructureConfirm: 6,
+        momentumDeteriorate: 3,
+        priceStructureDeteriorate: 3,
+      }),
+    },
+    {
+      slug: "multi-signal-gate",
+      name: "Multi-Signal Gate",
+      description:
+        "Requires at least 2 framework scores. Combines all available scores and research to produce a gated recommendation. More scores = higher confidence.",
+      version: "1.0.0",
+      config: JSON.stringify({
+        minScores: 2,
+        strongBuyAvg: 7.0,
+        strongBuyMin: 5.0,
+        buyAvg: 6.0,
+        buyMin: 4.0,
+        watchAvg: 4.5,
+        reviewAvg: 3.0,
+        penaltyThreshold: 3.0,
+        researchStrongCount: 3,
+      }),
+    },
+  ];
+
+  for (const sc of strategyConfigs) {
+    const created = await prisma.strategyConfig.upsert({
+      where: { slug: sc.slug },
+      update: { name: sc.name, description: sc.description, version: sc.version },
+      create: { ...sc, active: true },
+    });
+    console.log(`Seeded strategy config: ${created.name} (${created.slug})`);
+  }
+
   console.log("Seed complete.");
 }
 

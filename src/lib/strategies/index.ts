@@ -43,13 +43,32 @@ export interface StrategyOutput {
   researchIds: string[];
 }
 
+/** Generic config object — strategy-specific shape is defined by each module's defaults. */
+export type StrategyConfig = Record<string, number | boolean | string>;
+
+/** Safely extract a numeric config value. */
+function num(cfg: StrategyConfig, key: string): number {
+  return Number(cfg[key]) || 0;
+}
+
 export interface StrategyModule {
   slug: string;
   name: string;
   description: string;
   version: string;
   requiredFrameworkSlugs: string[];
-  evaluate: (input: StrategyInput) => StrategyOutput;
+  /** Default config that will be used if no DB-backed config exists. */
+  defaultConfig: StrategyConfig;
+  /** Config field descriptors for the management UI. */
+  configSchema: ConfigField[];
+  evaluate: (input: StrategyInput, config?: StrategyConfig) => StrategyOutput;
+}
+
+export interface ConfigField {
+  key: string;
+  label: string;
+  type: "number" | "boolean";
+  description?: string;
 }
 
 // ─── Registry ──────────────────────────────────────────────────
@@ -68,6 +87,38 @@ export function listStrategies(): StrategyModule[] {
   return Array.from(registry.values());
 }
 
+// ─── Default configs ───────────────────────────────────────────
+
+const VALUATION_CONFIG: StrategyConfig = {
+  strongBuyThreshold: 7.5,
+  buyThreshold: 6.0,
+  watchThreshold: 4.5,
+  reviewThreshold: 3.0,
+  researchSupportCount: 2,
+};
+
+const TREND_CONFIG: StrategyConfig = {
+  buyThreshold: 7.0,
+  watchThreshold: 5.5,
+  reviewThreshold: 3.5,
+  momentumConfirm: 7,
+  priceStructureConfirm: 6,
+  momentumDeteriorate: 3,
+  priceStructureDeteriorate: 3,
+};
+
+const MULTISIGNAL_CONFIG: StrategyConfig = {
+  minScores: 2,
+  strongBuyAvg: 7.0,
+  strongBuyMin: 5.0,
+  buyAvg: 6.0,
+  buyMin: 4.0,
+  watchAvg: 4.5,
+  reviewAvg: 3.0,
+  penaltyThreshold: 3.0,
+  researchStrongCount: 3,
+};
+
 // ─── Built-in Strategies ───────────────────────────────────────
 
 // 1. Valuation First
@@ -78,7 +129,22 @@ registerStrategy({
     "Prioritizes the Valuation framework score. Requires a Valuation score to run. Strong scores with quality/moat support produce Buy signals.",
   version: "1.0.0",
   requiredFrameworkSlugs: ["valuation"],
-  evaluate(input: StrategyInput): StrategyOutput {
+  defaultConfig: VALUATION_CONFIG,
+  configSchema: [
+    { key: "strongBuyThreshold", label: "Strong Buy Threshold", type: "number", description: "Composite >= this → Strong Buy" },
+    { key: "buyThreshold", label: "Buy Threshold", type: "number", description: "Composite >= this → Buy" },
+    { key: "watchThreshold", label: "Watch Threshold", type: "number", description: "Composite >= this → Watch" },
+    { key: "reviewThreshold", label: "Review Threshold", type: "number", description: "Composite >= this → Review" },
+    { key: "researchSupportCount", label: "Research Support Count", type: "number", description: "Research artifacts needed for support rule" },
+  ],
+  evaluate(input: StrategyInput, cfg?: StrategyConfig): StrategyOutput {
+    const c = { ...VALUATION_CONFIG, ...cfg };
+    const strongBuy = num(c, "strongBuyThreshold");
+    const buy = num(c, "buyThreshold");
+    const watch = num(c, "watchThreshold");
+    const review = num(c, "reviewThreshold");
+    const researchSupport = num(c, "researchSupportCount");
+
     const valScore = input.scores.find(
       (s) => s.frameworkSlug === "valuation"
     );
@@ -105,42 +171,42 @@ registerStrategy({
     const rules: RuleTriggered[] = [];
     let level: RecommendationLevel = "Review";
 
-    if (composite >= 7.5) {
+    if (composite >= strongBuy) {
       level = "Strong Buy";
       rules.push({
-        rule: "composite >= 7.5",
-        detail: `Valuation composite ${composite.toFixed(2)} is strong (>= 7.5)`,
+        rule: `composite >= ${strongBuy}`,
+        detail: `Valuation composite ${composite.toFixed(2)} is strong (>= ${strongBuy})`,
       });
-    } else if (composite >= 6.0) {
+    } else if (composite >= buy) {
       level = "Buy";
       rules.push({
-        rule: "composite >= 6.0",
-        detail: `Valuation composite ${composite.toFixed(2)} is favorable (>= 6.0)`,
+        rule: `composite >= ${buy}`,
+        detail: `Valuation composite ${composite.toFixed(2)} is favorable (>= ${buy})`,
       });
-    } else if (composite >= 4.5) {
+    } else if (composite >= watch) {
       level = "Watch";
       rules.push({
-        rule: "composite >= 4.5",
-        detail: `Valuation composite ${composite.toFixed(2)} is moderate (>= 4.5), monitor for improvement`,
+        rule: `composite >= ${watch}`,
+        detail: `Valuation composite ${composite.toFixed(2)} is moderate (>= ${watch}), monitor for improvement`,
       });
-    } else if (composite >= 3.0) {
+    } else if (composite >= review) {
       level = "Review";
       rules.push({
-        rule: "composite >= 3.0",
-        detail: `Valuation composite ${composite.toFixed(2)} is weak (>= 3.0), requires deeper review`,
+        rule: `composite >= ${review}`,
+        detail: `Valuation composite ${composite.toFixed(2)} is weak (>= ${review}), requires deeper review`,
       });
     } else {
       level = "Avoid";
       rules.push({
-        rule: "composite < 3.0",
-        detail: `Valuation composite ${composite.toFixed(2)} is very low (< 3.0)`,
+        rule: `composite < ${review}`,
+        detail: `Valuation composite ${composite.toFixed(2)} is very low (< ${review})`,
       });
     }
 
     // Research support bonus
-    if (input.researchArtifacts.length >= 2 && (level === "Strong Buy" || level === "Buy")) {
+    if (input.researchArtifacts.length >= researchSupport && (level === "Strong Buy" || level === "Buy")) {
       rules.push({
-        rule: "research_count >= 2",
+        rule: `research_count >= ${researchSupport}`,
         detail: `${input.researchArtifacts.length} research artifacts provide supporting evidence`,
       });
     }
@@ -174,7 +240,26 @@ registerStrategy({
     "Uses the Trend framework as primary signal. Requires a Trend score. Looks for momentum and price structure alignment.",
   version: "1.0.0",
   requiredFrameworkSlugs: ["trend"],
-  evaluate(input: StrategyInput): StrategyOutput {
+  defaultConfig: TREND_CONFIG,
+  configSchema: [
+    { key: "buyThreshold", label: "Buy Threshold", type: "number", description: "Trend composite >= this → Buy" },
+    { key: "watchThreshold", label: "Watch Threshold", type: "number", description: "Trend composite >= this → Watch" },
+    { key: "reviewThreshold", label: "Review Threshold", type: "number", description: "Trend composite >= this → Review" },
+    { key: "momentumConfirm", label: "Momentum Confirm", type: "number", description: "Momentum >= this for upgrade confirmation" },
+    { key: "priceStructureConfirm", label: "Price Structure Confirm", type: "number", description: "Price structure >= this for upgrade confirmation" },
+    { key: "momentumDeteriorate", label: "Momentum Deteriorate", type: "number", description: "Momentum <= this triggers downgrade" },
+    { key: "priceStructureDeteriorate", label: "Price Structure Deteriorate", type: "number", description: "Price structure <= this triggers downgrade" },
+  ],
+  evaluate(input: StrategyInput, cfg?: StrategyConfig): StrategyOutput {
+    const c = { ...TREND_CONFIG, ...cfg };
+    const buy = num(c, "buyThreshold");
+    const watch = num(c, "watchThreshold");
+    const review = num(c, "reviewThreshold");
+    const momConfirm = num(c, "momentumConfirm");
+    const psConfirm = num(c, "priceStructureConfirm");
+    const momDeter = num(c, "momentumDeteriorate");
+    const psDeter = num(c, "priceStructureDeteriorate");
+
     const trendScore = input.scores.find(
       (s) => s.frameworkSlug === "trend"
     );
@@ -205,53 +290,52 @@ registerStrategy({
     const rules: RuleTriggered[] = [];
     let level: RecommendationLevel = "Review";
 
-    // Composite-based base level
-    if (composite >= 7.0) {
+    if (composite >= buy) {
       level = "Buy";
       rules.push({
-        rule: "trend_composite >= 7.0",
+        rule: `trend_composite >= ${buy}`,
         detail: `Trend composite ${composite.toFixed(2)} is strong`,
       });
-    } else if (composite >= 5.5) {
+    } else if (composite >= watch) {
       level = "Watch";
       rules.push({
-        rule: "trend_composite >= 5.5",
+        rule: `trend_composite >= ${watch}`,
         detail: `Trend composite ${composite.toFixed(2)} is moderate`,
       });
-    } else if (composite >= 3.5) {
+    } else if (composite >= review) {
       level = "Review";
       rules.push({
-        rule: "trend_composite >= 3.5",
+        rule: `trend_composite >= ${review}`,
         detail: `Trend composite ${composite.toFixed(2)} is weak`,
       });
     } else {
       level = "Avoid";
       rules.push({
-        rule: "trend_composite < 3.5",
+        rule: `trend_composite < ${review}`,
         detail: `Trend composite ${composite.toFixed(2)} is very weak`,
       });
     }
 
     // Momentum + price structure confirmation
     if (momentum != null && priceStructure != null) {
-      if (momentum >= 7 && priceStructure >= 6) {
+      if (momentum >= momConfirm && priceStructure >= psConfirm) {
         if (level === "Buy") {
           level = "Strong Buy";
           rules.push({
-            rule: "momentum >= 7 AND price_structure >= 6",
+            rule: `momentum >= ${momConfirm} AND price_structure >= ${psConfirm}`,
             detail: "Momentum and price structure both confirm the trend",
           });
         } else if (level === "Watch") {
           level = "Buy";
           rules.push({
-            rule: "momentum >= 7 AND price_structure >= 6",
+            rule: `momentum >= ${momConfirm} AND price_structure >= ${psConfirm}`,
             detail: "Momentum and price structure confirm upgrading to Buy",
           });
         }
-      } else if (momentum <= 3 && priceStructure <= 3) {
+      } else if (momentum <= momDeter && priceStructure <= psDeter) {
         level = level === "Avoid" ? "Reject" : "Avoid";
         rules.push({
-          rule: "momentum <= 3 AND price_structure <= 3",
+          rule: `momentum <= ${momDeter} AND price_structure <= ${psDeter}`,
           detail: "Momentum and price structure both deteriorating",
         });
       }
@@ -278,7 +362,30 @@ registerStrategy({
     "Requires at least 2 framework scores. Combines all available scores and research to produce a gated recommendation. More scores = higher confidence.",
   version: "1.0.0",
   requiredFrameworkSlugs: [],
-  evaluate(input: StrategyInput): StrategyOutput {
+  defaultConfig: MULTISIGNAL_CONFIG,
+  configSchema: [
+    { key: "minScores", label: "Minimum Scores", type: "number", description: "Minimum number of framework scores required" },
+    { key: "strongBuyAvg", label: "Strong Buy Avg", type: "number", description: "Average composite >= this for Strong Buy" },
+    { key: "strongBuyMin", label: "Strong Buy Min", type: "number", description: "Minimum composite >= this for Strong Buy" },
+    { key: "buyAvg", label: "Buy Avg", type: "number", description: "Average composite >= this for Buy" },
+    { key: "buyMin", label: "Buy Min", type: "number", description: "Minimum composite >= this for Buy" },
+    { key: "watchAvg", label: "Watch Avg", type: "number", description: "Average composite >= this for Watch" },
+    { key: "reviewAvg", label: "Review Avg", type: "number", description: "Average composite >= this for Review" },
+    { key: "penaltyThreshold", label: "Penalty Threshold", type: "number", description: "Minimum score below this triggers penalty" },
+    { key: "researchStrongCount", label: "Research Strong Count", type: "number", description: "Research artifacts for strong evidence rule" },
+  ],
+  evaluate(input: StrategyInput, cfg?: StrategyConfig): StrategyOutput {
+    const c = { ...MULTISIGNAL_CONFIG, ...cfg };
+    const minScores = num(c, "minScores");
+    const strongBuyAvg = num(c, "strongBuyAvg");
+    const strongBuyMin = num(c, "strongBuyMin");
+    const buyAvg = num(c, "buyAvg");
+    const buyMin = num(c, "buyMin");
+    const watchAvg = num(c, "watchAvg");
+    const reviewAvg = num(c, "reviewAvg");
+    const penaltyThreshold = num(c, "penaltyThreshold");
+    const researchStrong = num(c, "researchStrongCount");
+
     const validScores = input.scores.filter(
       (s) => s.compositeScore != null
     );
@@ -292,14 +399,14 @@ registerStrategy({
       })),
     ];
 
-    if (validScores.length < 2) {
+    if (validScores.length < minScores) {
       return {
         recommendation: "Review",
-        reasoning: `Multi-Signal Gate requires at least 2 framework scores. Found ${validScores.length}. Need more scoring data to generate a recommendation.`,
+        reasoning: `Multi-Signal Gate requires at least ${minScores} framework scores. Found ${validScores.length}. Need more scoring data to generate a recommendation.`,
         inputSignals: signals,
         rulesTriggered: [
           {
-            rule: "score_count < 2",
+            rule: `score_count < ${minScores}`,
             detail: `Only ${validScores.length} score(s) available — gate not met`,
           },
         ],
@@ -308,7 +415,6 @@ registerStrategy({
       };
     }
 
-    // Calculate average composite across all frameworks
     const avgComposite =
       validScores.reduce((sum, s) => sum + (s.compositeScore ?? 0), 0) /
       validScores.length;
@@ -320,54 +426,53 @@ registerStrategy({
     const rules: RuleTriggered[] = [];
     let level: RecommendationLevel = "Review";
 
-    // Gate 1: Average composite
-    if (avgComposite >= 7.0 && minComposite >= 5.0) {
+    if (avgComposite >= strongBuyAvg && minComposite >= strongBuyMin) {
       level = "Strong Buy";
       rules.push({
-        rule: "avg >= 7.0 AND min >= 5.0",
+        rule: `avg >= ${strongBuyAvg} AND min >= ${strongBuyMin}`,
         detail: `Average composite ${avgComposite.toFixed(2)} with minimum ${minComposite.toFixed(2)} — all frameworks aligned`,
       });
-    } else if (avgComposite >= 6.0 && minComposite >= 4.0) {
+    } else if (avgComposite >= buyAvg && minComposite >= buyMin) {
       level = "Buy";
       rules.push({
-        rule: "avg >= 6.0 AND min >= 4.0",
+        rule: `avg >= ${buyAvg} AND min >= ${buyMin}`,
         detail: `Average composite ${avgComposite.toFixed(2)} with minimum ${minComposite.toFixed(2)} — frameworks mostly aligned`,
       });
-    } else if (avgComposite >= 4.5) {
+    } else if (avgComposite >= watchAvg) {
       level = "Watch";
       rules.push({
-        rule: "avg >= 4.5",
+        rule: `avg >= ${watchAvg}`,
         detail: `Average composite ${avgComposite.toFixed(2)} — mixed signals, monitor`,
       });
-    } else if (avgComposite >= 3.0) {
+    } else if (avgComposite >= reviewAvg) {
       level = "Review";
       rules.push({
-        rule: "avg >= 3.0",
+        rule: `avg >= ${reviewAvg}`,
         detail: `Average composite ${avgComposite.toFixed(2)} — weak overall, deeper review needed`,
       });
     } else {
       level = "Avoid";
       rules.push({
-        rule: "avg < 3.0",
+        rule: `avg < ${reviewAvg}`,
         detail: `Average composite ${avgComposite.toFixed(2)} — very weak across frameworks`,
       });
     }
 
-    // Gate 2: Minimum score penalty
-    if (minComposite < 3.0) {
+    // Minimum score penalty
+    if (minComposite < penaltyThreshold) {
       if (level === "Buy" || level === "Strong Buy") {
         level = "Watch";
         rules.push({
-          rule: "min < 3.0 (penalty)",
+          rule: `min < ${penaltyThreshold} (penalty)`,
           detail: `Lowest framework score is ${minComposite.toFixed(2)} — downgrading due to weak outlier`,
         });
       }
     }
 
-    // Gate 3: Research support
-    if (input.researchArtifacts.length >= 3) {
+    // Research support
+    if (input.researchArtifacts.length >= researchStrong) {
       rules.push({
-        rule: "research_count >= 3",
+        rule: `research_count >= ${researchStrong}`,
         detail: `${input.researchArtifacts.length} research artifacts provide strong supporting evidence`,
       });
     } else if (input.researchArtifacts.length === 0) {

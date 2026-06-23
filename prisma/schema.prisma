@@ -145,10 +145,24 @@ model WatchlistEntry {
   addedAt     DateTime @default(now())
 }
 
+model StrategyConfig {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String
+  active      Boolean  @default(true)
+  version     String   @default("1.0.0")
+  config      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model Recommendation {
   id              String   @id @default(cuid())
   strategySlug    String
   strategyName    String
+  strategyVersion String?
+  configSnapshot  String?
   assetTicker     String
   asset           Asset    @relation(fields: [assetTicker], references: [ticker], onDelete: Cascade)
   recommendation  String

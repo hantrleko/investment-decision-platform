@@ -36,6 +36,9 @@ export default async function RecommendationDetailPage({ params }: PageProps) {
   const rulesTriggered: Array<{ rule: string; detail: string }> = JSON.parse(rec.rulesTriggered);
   const scoreIds: string[] = JSON.parse(rec.scoreIds);
   const researchIds: string[] = JSON.parse(rec.researchIds);
+  const configSnapshot: Record<string, unknown> | null = rec.configSnapshot
+    ? JSON.parse(rec.configSnapshot)
+    : null;
 
   // Fetch linked scores and research
   const linkedScores = scoreIds.length > 0
@@ -132,6 +135,29 @@ export default async function RecommendationDetailPage({ params }: PageProps) {
           </div>
         )}
       </section>
+
+      <Separator />
+
+      {/* Strategy Version & Config Snapshot */}
+      {rec.strategyVersion && (
+        <section>
+          <h2 className="text-lg font-semibold mb-2">Strategy Configuration Used</h2>
+          <div className="space-y-3">
+            <div>
+              <span className="text-sm font-medium">Version: </span>
+              <span className="text-sm font-mono">{rec.strategyVersion}</span>
+            </div>
+            {configSnapshot && (
+              <div>
+                <span className="text-sm font-medium">Config Snapshot:</span>
+                <pre className="mt-1 rounded-md border bg-muted/50 p-3 text-xs overflow-x-auto">
+                  {JSON.stringify(configSnapshot, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       <Separator />
 

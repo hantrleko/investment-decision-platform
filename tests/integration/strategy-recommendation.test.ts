@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import {
+  listStrategies,
+  getStrategy,
+  type StrategyConfig,
+} from "@/lib/strategies";
 
 const TEST_DB_URL = "file:./test-strategy.db";
 const prisma = new PrismaClient({
@@ -49,10 +54,25 @@ beforeAll(async () => {
     },
   });
   scoreId = score.id;
+
+  // Seed default strategy configs from the registry
+  for (const s of listStrategies()) {
+    await prisma.strategyConfig.create({
+      data: {
+        slug: s.slug,
+        name: s.name,
+        description: s.description,
+        active: true,
+        version: s.version,
+        config: JSON.stringify(s.defaultConfig),
+      },
+    });
+  }
 });
 
 afterAll(async () => {
   await prisma.recommendation.deleteMany({});
+  await prisma.strategyConfig.deleteMany({});
   await prisma.decisionScoreLink.deleteMany({});
   await prisma.decisionResearchLink.deleteMany({});
   await prisma.decision.deleteMany({});
@@ -269,5 +289,243 @@ describe("Regression — ticker FK integrity", () => {
     // Recommendation should be gone
     const gone = await prisma.recommendation.findUnique({ where: { id: tempRec.id } });
     expect(gone).toBeNull();
+  });
+});
+
+// ─── Strategy Config Persistence ──────────────────────────────
+
+describe("StrategyConfig persistence", () => {
+  it("seeded 3 strategy configs exist", async () => {
+    const configs = await prisma.strategyConfig.findMany();
+    expect(configs.length).toBe(3);
+    const slugs = configs.map((c) => c.slug);
+    expect(slugs).toContain("valuation-first");
+    expect(slugs).toContain("trend-confirmed");
+    expect(slugs).toContain("multi-signal-gate");
+  });
+
+  it("each config has valid JSON config field", async () => {
+    const configs = await prisma.strategyConfig.findMany();
+    for (const c of configs) {
+      const parsed = JSON.parse(c.config);
+      expect(typeof parsed).toBe("object");
+      expect(Object.keys(parsed).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("updates config values persistently", async () => {
+    const newConfig = JSON.stringify({ strongBuyThreshold: 6.0, buyThreshold: 4.5, watchThreshold: 3.0, reviewThreshold: 2.0, researchSupportCount: 3 });
+    await prisma.strategyConfig.update({
+      where: { slug: "valuation-first" },
+      data: { config: newConfig },
+    });
+
+    const updated = await prisma.strategyConfig.findUnique({ where: { slug: "valuation-first" } });
+    const parsed = JSON.parse(updated!.config);
+    expect(parsed.strongBuyThreshold).toBe(6.0);
+    expect(parsed.buyThreshold).toBe(4.5);
+    expect(parsed.researchSupportCount).toBe(3);
+  });
+
+  it("toggles active/inactive status", async () => {
+    const before = await prisma.strategyConfig.findUnique({ where: { slug: "valuation-first" } });
+    expect(before!.active).toBe(true);
+
+    await prisma.strategyConfig.update({
+      where: { slug: "valuation-first" },
+      data: { active: false },
+    });
+
+    const after = await prisma.strategyConfig.findUnique({ where: { slug: "valuation-first" } });
+    expect(after!.active).toBe(false);
+
+    // Restore
+    await prisma.strategyConfig.update({
+      where: { slug: "valuation-first" },
+      data: { active: true },
+    });
+  });
+
+  it("version field persists and can be updated", async () => {
+    await prisma.strategyConfig.update({
+      where: { slug: "trend-confirmed" },
+      data: { version: "1.1.0" },
+    });
+
+    const updated = await prisma.strategyConfig.findUnique({ where: { slug: "trend-confirmed" } });
+    expect(updated!.version).toBe("1.1.0");
+
+    // Restore
+    await prisma.strategyConfig.update({
+      where: { slug: "trend-confirmed" },
+      data: { version: "1.0.0" },
+    });
+  });
+});
+
+// ─── Recommendation Config Snapshot ───────────────────────────
+
+describe("Recommendation config snapshot and version", () => {
+  it("saves strategyVersion and configSnapshot on recommendation", async () => {
+    const config = { strongBuyThreshold: 6.0, buyThreshold: 4.5, watchThreshold: 3.0, reviewThreshold: 2.0, researchSupportCount: 2 };
+    const rec = await prisma.recommendation.create({
+      data: {
+        strategySlug: "valuation-first",
+        strategyName: "Valuation First",
+        strategyVersion: "1.0.0",
+        configSnapshot: JSON.stringify(config),
+        assetTicker: "AAPL",
+        recommendation: "Strong Buy",
+        reasoning: "Test with custom config",
+        inputSignals: "[]",
+        rulesTriggered: "[]",
+        scoreIds: "[]",
+        researchIds: "[]",
+        authorId: userId,
+      },
+    });
+
+    expect(rec.strategyVersion).toBe("1.0.0");
+    expect(rec.configSnapshot).toBeDefined();
+    const snapshot = JSON.parse(rec.configSnapshot!);
+    expect(snapshot.strongBuyThreshold).toBe(6.0);
+    expect(snapshot.buyThreshold).toBe(4.5);
+  });
+
+  it("recommendation with config snapshot is reproducible", async () => {
+    // Simulate: run strategy with config, verify same config + score produces same result
+    const strategy = getStrategy("valuation-first")!;
+    const savedConfig: StrategyConfig = { strongBuyThreshold: 6.0, buyThreshold: 4.0, watchThreshold: 3.0, reviewThreshold: 2.0, researchSupportCount: 2 };
+
+    const input = {
+      assetTicker: "AAPL",
+      scores: [{
+        id: scoreId,
+        frameworkSlug: "valuation",
+        frameworkName: "Valuation",
+        compositeScore: 6.15,
+        manualOverride: false,
+        factorScores: {},
+        scoredAt: new Date(),
+      }],
+      researchArtifacts: [],
+    };
+
+    const output = strategy.evaluate(input, savedConfig);
+    expect(output.recommendation).toBe("Strong Buy");
+
+    // Replay with same config snapshot → same result
+    const replay = strategy.evaluate(input, savedConfig);
+    expect(replay.recommendation).toBe(output.recommendation);
+    expect(replay.rulesTriggered).toEqual(output.rulesTriggered);
+  });
+
+  it("different config produces different recommendation for same input", async () => {
+    const strategy = getStrategy("valuation-first")!;
+    const input = {
+      assetTicker: "AAPL",
+      scores: [{
+        id: scoreId,
+        frameworkSlug: "valuation",
+        frameworkName: "Valuation",
+        compositeScore: 6.15,
+        manualOverride: false,
+        factorScores: {},
+        scoredAt: new Date(),
+      }],
+      researchArtifacts: [],
+    };
+
+    // With default config, 6.15 → Buy
+    const defaultResult = strategy.evaluate(input);
+    expect(defaultResult.recommendation).toBe("Buy");
+
+    // With custom config (strongBuy=6.0), 6.15 → Strong Buy
+    const customConfig: StrategyConfig = { strongBuyThreshold: 6.0 };
+    const customResult = strategy.evaluate(input, customConfig);
+    expect(customResult.recommendation).toBe("Strong Buy");
+
+    // Verify they differ
+    expect(customResult.recommendation).not.toBe(defaultResult.recommendation);
+  });
+});
+
+// ─── Backward Compatibility ───────────────────────────────────
+
+describe("Backward compatibility — existing recommendations", () => {
+  it("recommendations without strategyVersion/configSnapshot still work", async () => {
+    // Create a recommendation as v1 would (no version/snapshot fields)
+    const rec = await prisma.recommendation.create({
+      data: {
+        strategySlug: "valuation-first",
+        strategyName: "Valuation First",
+        assetTicker: "AAPL",
+        recommendation: "Buy",
+        reasoning: "Legacy recommendation",
+        inputSignals: "[]",
+        rulesTriggered: "[]",
+        scoreIds: JSON.stringify([scoreId]),
+        researchIds: "[]",
+        authorId: userId,
+      },
+    });
+
+    // strategyVersion and configSnapshot should be null
+    expect(rec.strategyVersion).toBeNull();
+    expect(rec.configSnapshot).toBeNull();
+
+    // Still retrievable
+    const fetched = await prisma.recommendation.findUnique({ where: { id: rec.id } });
+    expect(fetched).not.toBeNull();
+    expect(fetched!.recommendation).toBe("Buy");
+    expect(fetched!.strategyName).toBe("Valuation First");
+  });
+
+  it("existing decision conversion flow still works with null version", async () => {
+    const rec = await prisma.recommendation.findFirst({
+      where: { strategyVersion: null },
+    });
+    expect(rec).not.toBeNull();
+
+    // Create decision from it
+    const decision = await prisma.decision.create({
+      data: {
+        title: `[${rec!.strategyName}] ${rec!.recommendation} — ${rec!.assetTicker}`,
+        direction: "bullish",
+        thesis: rec!.reasoning,
+        authorId: userId,
+        scoreLinks: { create: [{ scoreId }] },
+      },
+    });
+
+    await prisma.recommendation.update({
+      where: { id: rec!.id },
+      data: { convertedDecisionId: decision.id },
+    });
+
+    expect(decision.direction).toBe("bullish");
+    const updated = await prisma.recommendation.findUnique({ where: { id: rec!.id } });
+    expect(updated!.convertedDecisionId).toBe(decision.id);
+  });
+
+  it("strategy.evaluate without config still uses defaults (backward compat)", () => {
+    const strategy = getStrategy("valuation-first")!;
+    const input = {
+      assetTicker: "TEST",
+      scores: [{
+        id: "s1",
+        frameworkSlug: "valuation",
+        frameworkName: "Valuation",
+        compositeScore: 6.15,
+        manualOverride: false,
+        factorScores: {},
+        scoredAt: new Date(),
+      }],
+      researchArtifacts: [],
+    };
+
+    // No config argument — should use built-in defaults
+    const result = strategy.evaluate(input);
+    expect(result.recommendation).toBe("Buy"); // 6.15 >= 6.0 default
   });
 });

@@ -2,7 +2,14 @@
 
 import { prisma } from "@/lib/db";
 import { verifySession } from "@/lib/auth";
-import { getStrategy, listStrategies, type StrategyInput, type StrategyOutput } from "@/lib/strategies";
+import {
+  getStrategy,
+  listStrategies,
+  type StrategyInput,
+  type StrategyOutput,
+  type StrategyConfig,
+  type ConfigField,
+} from "@/lib/strategies";
 import { createDecision } from "@/actions/decisions";
 import { revalidatePath } from "next/cache";
 
@@ -12,16 +19,134 @@ export interface StrategyInfo {
   description: string;
   version: string;
   requiredFrameworkSlugs: string[];
+  active: boolean;
+  config: StrategyConfig;
+  configSchema: ConfigField[];
+}
+
+/** Ensure a StrategyConfig row exists for every registered strategy. Creates defaults if missing. */
+export async function ensureStrategyConfigs() {
+  const existing = await prisma.strategyConfig.findMany();
+  const existingSlugs = new Set(existing.map((c) => c.slug));
+
+  for (const s of listStrategies()) {
+    if (!existingSlugs.has(s.slug)) {
+      await prisma.strategyConfig.create({
+        data: {
+          slug: s.slug,
+          name: s.name,
+          description: s.description,
+          active: true,
+          version: s.version,
+          config: JSON.stringify(s.defaultConfig),
+        },
+      });
+    }
+  }
 }
 
 export async function getAvailableStrategies(): Promise<StrategyInfo[]> {
-  return listStrategies().map((s) => ({
+  await ensureStrategyConfigs();
+  const configs = await prisma.strategyConfig.findMany();
+  const configMap = new Map(configs.map((c) => [c.slug, c]));
+
+  return listStrategies().map((s) => {
+    const dbConfig = configMap.get(s.slug);
+    return {
+      slug: s.slug,
+      name: s.name,
+      description: s.description,
+      version: dbConfig?.version ?? s.version,
+      requiredFrameworkSlugs: s.requiredFrameworkSlugs,
+      active: dbConfig?.active ?? true,
+      config: dbConfig ? JSON.parse(dbConfig.config) : s.defaultConfig,
+      configSchema: s.configSchema,
+    };
+  });
+}
+
+export async function getStrategyConfig(slug: string): Promise<StrategyInfo | null> {
+  const s = getStrategy(slug);
+  if (!s) return null;
+
+  const dbConfig = await prisma.strategyConfig.findUnique({ where: { slug } });
+
+  return {
     slug: s.slug,
     name: s.name,
     description: s.description,
-    version: s.version,
+    version: dbConfig?.version ?? s.version,
     requiredFrameworkSlugs: s.requiredFrameworkSlugs,
-  }));
+    active: dbConfig?.active ?? true,
+    config: dbConfig ? JSON.parse(dbConfig.config) : s.defaultConfig,
+    configSchema: s.configSchema,
+  };
+}
+
+export async function updateStrategyConfig(input: {
+  slug: string;
+  config: Record<string, string>;
+}) {
+  const session = await verifySession();
+  if (!session) {
+    return { error: "Session expired. Please sign out and sign in again." };
+  }
+
+  const strategy = getStrategy(input.slug);
+  if (!strategy) {
+    return { error: `Strategy "${input.slug}" not found` };
+  }
+
+  // Convert form string values to proper types based on configSchema
+  const newConfig: StrategyConfig = { ...strategy.defaultConfig };
+  for (const field of strategy.configSchema) {
+    const raw = input.config[field.key];
+    if (raw === undefined || raw === "") continue;
+    if (field.type === "number") {
+      const n = Number(raw);
+      if (isNaN(n)) {
+        return { error: `Invalid number for ${field.label}` };
+      }
+      newConfig[field.key] = n;
+    } else if (field.type === "boolean") {
+      newConfig[field.key] = raw === "true" || raw === "on";
+    } else {
+      newConfig[field.key] = raw;
+    }
+  }
+
+  const updated = await prisma.strategyConfig.update({
+    where: { slug: input.slug },
+    data: {
+      config: JSON.stringify(newConfig),
+      version: strategy.version,
+    },
+  });
+
+  revalidatePath("/strategies");
+  revalidatePath(`/strategies/${input.slug}`);
+  return { data: updated };
+}
+
+export async function toggleStrategyActive(input: { slug: string }) {
+  const session = await verifySession();
+  if (!session) {
+    return { error: "Session expired. Please sign out and sign in again." };
+  }
+
+  const existing = await prisma.strategyConfig.findUnique({ where: { slug: input.slug } });
+  if (!existing) {
+    return { error: "Strategy config not found" };
+  }
+
+  const updated = await prisma.strategyConfig.update({
+    where: { slug: input.slug },
+    data: { active: !existing.active },
+  });
+
+  revalidatePath("/strategies");
+  revalidatePath(`/strategies/${input.slug}`);
+  return { data: updated };
 }
 
 export async function runStrategy(input: { strategySlug: string; assetTicker: string }) {
@@ -34,6 +159,21 @@ export async function runStrategy(input: { strategySlug: string; assetTicker: st
   if (!strategy) {
     return { error: `Strategy "${input.strategySlug}" not found` };
   }
+
+  // Load DB-backed config
+  await ensureStrategyConfigs();
+  const dbConfig = await prisma.strategyConfig.findUnique({
+    where: { slug: input.strategySlug },
+  });
+
+  if (dbConfig && !dbConfig.active) {
+    return { error: `Strategy "${strategy.name}" is inactive and cannot be run` };
+  }
+
+  const config: StrategyConfig = dbConfig
+    ? JSON.parse(dbConfig.config)
+    : strategy.defaultConfig;
+  const version = dbConfig?.version ?? strategy.version;
 
   const asset = await prisma.asset.findUnique({
     where: { ticker: input.assetTicker },
@@ -90,14 +230,16 @@ export async function runStrategy(input: { strategySlug: string; assetTicker: st
     })),
   };
 
-  // Run the strategy
-  const output: StrategyOutput = strategy.evaluate(strategyInput);
+  // Run the strategy with config
+  const output: StrategyOutput = strategy.evaluate(strategyInput, config);
 
-  // Save the recommendation
+  // Save the recommendation with config snapshot
   const recommendation = await prisma.recommendation.create({
     data: {
       strategySlug: strategy.slug,
       strategyName: strategy.name,
+      strategyVersion: version,
+      configSnapshot: JSON.stringify(config),
       assetTicker: input.assetTicker,
       recommendation: output.recommendation,
       reasoning: output.reasoning,
