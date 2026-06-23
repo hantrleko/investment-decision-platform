@@ -17,6 +17,7 @@ model User {
 
   researchArtifacts ResearchArtifact[]
   decisions         Decision[]
+  recommendations   Recommendation[]
 }
 
 model Asset {
@@ -35,6 +36,7 @@ model Asset {
   researchArtifacts ResearchArtifact[]
   scores           Score[]
   watchlistEntries WatchlistEntry[]
+  recommendations  Recommendation[]
 }
 
 model Framework {
@@ -141,4 +143,25 @@ model WatchlistEntry {
   asset       Asset    @relation(fields: [assetTicker], references: [ticker], onDelete: Cascade)
   notes       String?
   addedAt     DateTime @default(now())
+}
+
+model Recommendation {
+  id              String   @id @default(cuid())
+  strategySlug    String
+  strategyName    String
+  assetTicker     String
+  asset           Asset    @relation(fields: [assetTicker], references: [ticker], onDelete: Cascade)
+  recommendation  String
+  reasoning       String
+  inputSignals    String
+  rulesTriggered  String
+  scoreIds        String
+  researchIds     String
+  convertedDecisionId String?
+  authorId        String
+  author          User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+
+  @@index([assetTicker])
+  @@index([strategySlug])
 }

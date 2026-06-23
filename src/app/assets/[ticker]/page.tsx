@@ -81,6 +81,20 @@ export default async function AssetDetailPage({ params }: PageProps) {
     .map((scores) => scores[0])
     .filter(Boolean);
 
+  // Recent strategy recommendations for this asset
+  const recommendations = await prisma.recommendation.findMany({
+    where: { assetTicker: ticker },
+    take: 5,
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      strategyName: true,
+      recommendation: true,
+      createdAt: true,
+      convertedDecisionId: true,
+    },
+  });
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Asset header */}
@@ -110,6 +124,9 @@ export default async function AssetDetailPage({ params }: PageProps) {
           <div className="flex gap-2">
             <Link href={`/scores/new?asset=${ticker}`}>
               <Button size="sm">Score with Framework</Button>
+            </Link>
+            <Link href={`/strategies?asset=${ticker}`}>
+              <Button size="sm" variant="outline">Run Strategy</Button>
             </Link>
             <WatchlistToggle assetTicker={ticker} isOnWatchlist={isOnWatchlist} />
           </div>
@@ -160,6 +177,35 @@ export default async function AssetDetailPage({ params }: PageProps) {
           createdAt: d.createdAt,
         }))}
       />
+
+      {recommendations.length > 0 && (
+        <>
+          <Separator />
+          <section>
+            <h2 className="text-lg font-semibold mb-3">Strategy Recommendations</h2>
+            <div className="space-y-2">
+              {recommendations.map((rec) => (
+                <Link
+                  key={rec.id}
+                  href={`/recommendations/${rec.id}`}
+                  className="flex items-center justify-between rounded-md border p-3 hover:bg-accent/50"
+                >
+                  <span className="text-sm font-medium">{rec.strategyName}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold">{rec.recommendation}</span>
+                    {rec.convertedDecisionId && (
+                      <span className="inline-flex items-center rounded-full bg-secondary px-1.5 py-0.5 text-xs text-secondary-foreground">
+                        converted
+                      </span>
+                    )}
+                    <span className="text-xs text-muted-foreground">{rec.createdAt.toLocaleDateString()}</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
     </div>
   );
 }
