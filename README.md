@@ -167,6 +167,42 @@ pnpm build
 pnpm start
 ```
 
+## Railway Deployment
+
+This app includes a `Dockerfile` and `railway.json` configured for Railway deployment with persistent SQLite storage.
+
+### Steps
+
+1. Go to [railway.app](https://railway.app) and create a new project
+2. Deploy from GitHub repo → select `hantrleko/investment-decision-platform`
+3. Railway will detect the `Dockerfile` and build automatically
+4. Set the following environment variables in Railway:
+
+| Variable | Value | Notes |
+|---|---|---|
+| `ADMIN_EMAIL` | your email | Login email |
+| `ADMIN_PASSWORD` | your password | Login password |
+| `NEXTAUTH_SECRET` | random string | Generate with `openssl rand -base64 32` |
+| `NEXTAUTH_URL` | `https://your-app.up.railway.app` | Your Railway domain |
+| `DATABASE_URL` | `file:./data/dev.db` | Uses persistent volume |
+| `STORAGE_PATH` | `./storage` | Uses persistent volume |
+
+5. Railway will automatically mount persistent volumes at `/app/data` (database) and `/app/storage` (attachments)
+6. On first deploy, the start script will automatically:
+   - Push the database schema (`prisma db push`)
+   - Seed initial data (user, frameworks, strategies, demo data)
+   - Set up FTS5 full-text search
+7. Subsequent deploys skip seeding if data already exists
+
+### Railway CLI (optional)
+
+```bash
+npm install -g @railway/cli
+railway login
+railway link    # link to your Railway project
+railway up      # deploy
+```
+
 ## Project Files
 
 - `DEVIATIONS.md` — Version deviations from spec with rationale
