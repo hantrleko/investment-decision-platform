@@ -89,6 +89,38 @@ export function countByLevel(
   return result;
 }
 
+export interface SectorAssetInput {
+  sector: string | null;
+  lastPrice: number | null;
+}
+
+export interface SectorAllocation {
+  sector: string;
+  count: number;
+  /** Sum of last known prices (a crude proxy for exposure). */
+  knownValue: number;
+}
+
+/**
+ * Aggregate assets by sector for the portfolio-overview chart.
+ * Assets with no sector are grouped under "Unclassified". Sorted by count desc.
+ */
+export function computeSectorAllocation(
+  assets: SectorAssetInput[]
+): SectorAllocation[] {
+  const map = new Map<string, SectorAllocation>();
+  for (const a of assets) {
+    const sector = a.sector?.trim() || "Unclassified";
+    const existing = map.get(sector) ?? { sector, count: 0, knownValue: 0 };
+    existing.count += 1;
+    existing.knownValue += a.lastPrice ?? 0;
+    map.set(sector, existing);
+  }
+  return Array.from(map.values()).sort(
+    (a, b) => b.count - a.count || b.knownValue - a.knownValue
+  );
+}
+
 export interface HitRateTrendPoint {
   outcomeDate: Date | null;
   outcome: string | null;
