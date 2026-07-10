@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/layout/toast-provider";
 import { createAlert, deleteAlert, toggleAlert } from "@/actions/alerts";
 
 interface AssetOption {
@@ -41,6 +42,7 @@ export function AlertManager({
   alerts: AlertRow[];
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [ticker, setTicker] = useState(assets[0]?.ticker ?? "");
@@ -60,24 +62,30 @@ export function AlertManager({
       });
       if (res.error) {
         setError(res.error);
+        toast.error(res.error);
         return;
       }
       setThreshold("");
       setNote("");
+      toast.success(`Alert added for ${ticker}`);
       router.refresh();
     });
   }
 
   function remove(id: string) {
     startTransition(async () => {
-      await deleteAlert({ id });
+      const res = await deleteAlert({ id });
+      if (res.error) toast.error(res.error);
+      else toast.success("Alert deleted");
       router.refresh();
     });
   }
 
   function toggle(id: string, active: boolean) {
     startTransition(async () => {
-      await toggleAlert({ id, active });
+      const res = await toggleAlert({ id, active });
+      if (res.error) toast.error(res.error);
+      else toast.info(active ? "Alert resumed" : "Alert paused");
       router.refresh();
     });
   }

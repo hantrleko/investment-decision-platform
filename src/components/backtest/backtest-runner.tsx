@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Sparkline } from "@/components/dashboard/sparkline";
+import { useToast } from "@/components/layout/toast-provider";
 
 interface BacktestResult {
   kind: string;
@@ -32,6 +33,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 }
 
 export function BacktestRunner({ tickers }: { tickers: string[] }) {
+  const toast = useToast();
   const [ticker, setTicker] = useState(tickers[0] ?? "");
   const [manualTicker, setManualTicker] = useState("");
   const [kind, setKind] = useState("sma_crossover");
@@ -67,11 +69,16 @@ export function BacktestRunner({ tickers }: { tickers: string[] }) {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Backtest failed");
+        toast.error(data.error ?? "Backtest failed");
         return;
       }
       setResult(data);
+      toast.success(
+        `Backtest complete: ${data.totalReturnPct?.toFixed(1)}% over ${data.bars} bars`
+      );
     } catch {
       setError("Network error running backtest");
+      toast.error("Network error running backtest");
     } finally {
       setLoading(false);
     }

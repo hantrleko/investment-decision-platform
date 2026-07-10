@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/layout/toast-provider";
 import { createApiToken, revokeApiToken } from "@/actions/api-tokens";
 
 interface TokenRow {
@@ -18,6 +19,7 @@ interface TokenRow {
 
 export function ApiTokenManager({ tokens }: { tokens: TokenRow[] }) {
   const router = useRouter();
+  const toast = useToast();
   const [isPending, startTransition] = useTransition();
   const [name, setName] = useState("");
   const [scopes, setScopes] = useState("read");
@@ -32,17 +34,21 @@ export function ApiTokenManager({ tokens }: { tokens: TokenRow[] }) {
       const res = await createApiToken({ name, scopes });
       if (res.error) {
         setError(res.error);
+        toast.error(res.error);
         return;
       }
       setCreated(res.data!.plaintext);
       setName("");
+      toast.success("API token created — copy it now");
       router.refresh();
     });
   }
 
   function revoke(id: string) {
     startTransition(async () => {
-      await revokeApiToken({ id });
+      const res = await revokeApiToken({ id });
+      if (res.error) toast.error(res.error);
+      else toast.info("Token revoked");
       router.refresh();
     });
   }

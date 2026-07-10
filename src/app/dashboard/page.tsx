@@ -2,10 +2,12 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Sparkline } from "@/components/dashboard/sparkline";
+import { BarChart } from "@/components/dashboard/bar-chart";
 import {
   computeDecisionStats,
   countByLevel,
   computeHitRateTrend,
+  computeSectorAllocation,
 } from "@/lib/analytics/dashboard";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +51,7 @@ export default async function DashboardPage() {
     recentRecs,
     recentNotifications,
     topMovers,
+    allAssetsForSector,
   ] = await Promise.all([
     prisma.asset.count(),
     prisma.researchArtifact.count(),
@@ -78,6 +81,9 @@ export default async function DashboardPage() {
         lastPriceTs: true,
       },
     }),
+    prisma.asset.findMany({
+      select: { sector: true, lastPrice: true },
+    }),
   ]);
 
   const stats = computeDecisionStats(decisions);
@@ -85,6 +91,7 @@ export default async function DashboardPage() {
   const trend = computeHitRateTrend(
     decisions.map((d) => ({ outcomeDate: d.outcomeDate, outcome: d.outcome }))
   );
+  const sectors = computeSectorAllocation(allAssetsForSector);
 
   return (
     <div className="space-y-6">
@@ -152,35 +159,34 @@ export default async function DashboardPage() {
             <CardTitle>Recommendation Distribution</CardTitle>
           </CardHeader>
           <CardContent>
-            {levels.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No recommendations generated yet.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {levels.map((l) => {
-                  const total = recommendations.length || 1;
-                  const pct = (l.count / total) * 100;
-                  return (
-                    <div key={l.level} className="flex items-center gap-3">
-                      <span className="w-24 text-sm">{l.level}</span>
-                      <div className="h-3 flex-1 overflow-hidden rounded bg-muted">
-                        <div
-                          className="h-full bg-primary"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <span className="w-8 text-right text-sm tabular-nums">
-                        {l.count}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            <BarChart
+              data={levels.map((l) => ({ label: l.level, value: l.count }))}
+              emptyLabel="No recommendations generated yet."
+            />
           </CardContent>
         </Card>
       </div>
+
+      {/* Portfolio / sector overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Portfolio by Sector</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <BarChart
+            data={sectors.map((s) => ({
+              label: s.sector,
+              value: s.count,
+              display: `${s.count} · ${s.knownValue.toFixed(0)}`,
+            }))}
+            emptyLabel="Add assets to see sector allocation."
+          />
+          <p className="mt-2 text-xs text-muted-foreground">
+            Bars show asset count per sector; right column shows count · summed
+            last-known price.
+          </p>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Recent recommendations */}

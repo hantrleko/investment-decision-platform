@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/layout/toast-provider";
 import {
   markNotificationRead,
   markAllNotificationsRead,
@@ -33,6 +34,7 @@ export function NotificationList({
   notifications: NotificationItem[];
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [isPending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -59,6 +61,7 @@ export function NotificationList({
   function handleMarkAll() {
     startTransition(async () => {
       await markAllNotificationsRead();
+      toast.success("All notifications marked as read");
       router.refresh();
     });
   }

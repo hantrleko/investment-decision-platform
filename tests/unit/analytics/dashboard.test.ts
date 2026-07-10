@@ -3,6 +3,7 @@ import {
   computeDecisionStats,
   countByLevel,
   computeHitRateTrend,
+  computeSectorAllocation,
 } from "@/lib/analytics/dashboard";
 
 describe("dashboard analytics", () => {
@@ -35,6 +36,22 @@ describe("dashboard analytics", () => {
     expect(result[0]).toEqual({ level: "Strong Buy", count: 1 });
     expect(result[1]).toEqual({ level: "Buy", count: 2 });
     expect(result[result.length - 1]).toEqual({ level: "Reject", count: 1 });
+  });
+
+  it("aggregates assets by sector, grouping missing sectors as Unclassified", () => {
+    const alloc = computeSectorAllocation([
+      { sector: "Technology", lastPrice: 100 },
+      { sector: "Technology", lastPrice: 50 },
+      { sector: null, lastPrice: 20 },
+      { sector: "  ", lastPrice: null },
+      { sector: "Energy", lastPrice: 200 },
+    ]);
+    // Technology has the most (2), then ties broken by knownValue.
+    expect(alloc[0]).toEqual({ sector: "Technology", count: 2, knownValue: 150 });
+    const unclassified = alloc.find((a) => a.sector === "Unclassified");
+    expect(unclassified?.count).toBe(2);
+    expect(unclassified?.knownValue).toBe(20);
+    expect(alloc.find((a) => a.sector === "Energy")?.knownValue).toBe(200);
   });
 
   it("computes a cumulative hit-rate trend ordered by outcome date", () => {

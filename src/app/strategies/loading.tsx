@@ -1,7 +1,11 @@
-export default function Loading() {
+import { StatCardsSkeleton, Skeleton } from "@/components/shared/skeleton";
+
+export default function StrategiesLoading() {
   return (
-    <div className="flex items-center justify-center py-12">
-      <div className="text-muted-foreground">Loading...</div>
+    <div className="space-y-6">
+      <Skeleton className="h-8 w-40" />
+      <StatCardsSkeleton count={3} />
+      <Skeleton className="h-64 w-full rounded-xl" />
     </div>
   );
 }
