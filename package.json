@@ -19,6 +19,14 @@
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   },
+  "pnpm": {
+    "overrides": {
+      "postcss@<8.5.10": ">=8.5.10"
+    }
+  },
+  "overrides": {
+    "postcss": ">=8.5.10"
+  },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
     "@prisma/client": "^6",

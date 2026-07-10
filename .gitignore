@@ -47,3 +47,5 @@ prisma/test-*.db-journal
 
 # local storage
 /storage/
+/dev.db
+prisma/*.db
