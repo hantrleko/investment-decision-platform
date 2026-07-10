@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getPrice } from "@/lib/marketdata/yahoo";
+import { evaluateAlertsForAsset } from "@/lib/alerts/notify";
 
 export async function POST(
   _request: Request,
@@ -29,10 +30,14 @@ export async function POST(
       },
     });
 
+    // Fire any alerts that this fresh price satisfies.
+    const triggered = await evaluateAlertsForAsset(ticker, price);
+
     return NextResponse.json({
       lastPrice: updated.lastPrice,
       lastPriceTs: updated.lastPriceTs?.toISOString(),
       priceSource: updated.priceSource,
+      alertsTriggered: triggered.length,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Price refresh failed";
