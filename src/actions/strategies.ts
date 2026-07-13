@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { verifySession } from "@/lib/auth";
+import { requireSession } from "@/lib/auth";
 import {
   getStrategy,
   listStrategies,
@@ -89,10 +89,8 @@ export async function updateStrategyConfig(input: {
   note?: string;
   experimentLabel?: string;
 }) {
-  const session = await verifySession();
-  if (!session) {
-    return { error: "Session expired. Please sign out and sign in again." };
-  }
+  const auth = await requireSession();
+  if (auth.error) return { error: auth.error };
 
   const strategy = getStrategy(input.slug);
   if (!strategy) {
@@ -144,10 +142,8 @@ export async function updateStrategyConfig(input: {
 }
 
 export async function toggleStrategyActive(input: { slug: string }) {
-  const session = await verifySession();
-  if (!session) {
-    return { error: "Session expired. Please sign out and sign in again." };
-  }
+  const auth = await requireSession();
+  if (auth.error) return { error: auth.error };
 
   const existing = await prisma.strategyConfig.findUnique({ where: { slug: input.slug } });
   if (!existing) {
@@ -165,10 +161,9 @@ export async function toggleStrategyActive(input: { slug: string }) {
 }
 
 export async function runStrategy(input: { strategySlug: string; assetTicker: string }) {
-  const session = await verifySession();
-  if (!session) {
-    return { error: "Session expired. Please sign out and sign in again." };
-  }
+  const auth = await requireSession();
+  if (auth.error) return { error: auth.error };
+  const { session } = auth;
 
   const strategy = getStrategy(input.strategySlug);
   if (!strategy) {
@@ -279,10 +274,8 @@ export async function runStrategy(input: { strategySlug: string; assetTicker: st
 }
 
 export async function convertRecommendationToDecision(input: { recommendationId: string }) {
-  const session = await verifySession();
-  if (!session) {
-    return { error: "Session expired. Please sign out and sign in again." };
-  }
+  const auth = await requireSession();
+  if (auth.error) return { error: auth.error };
 
   const rec = await prisma.recommendation.findUnique({
     where: { id: input.recommendationId },

@@ -1,15 +1,14 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { verifySession } from "@/lib/auth";
+import { requireSession } from "@/lib/auth";
 import { createResearchSchema, updateResearchSchema, deleteResearchSchema } from "@/lib/validators/research";
 import { revalidatePath } from "next/cache";
 
 export async function createResearch(input: unknown) {
-  const session = await verifySession();
-  if (!session) {
-    return { error: "Session expired. Please sign out and sign in again." };
-  }
+  const auth = await requireSession();
+  if (auth.error) return { error: auth.error };
+  const { session } = auth;
 
   const parsed = createResearchSchema.safeParse(input);
   if (!parsed.success) {
@@ -43,10 +42,8 @@ export async function createResearch(input: unknown) {
 }
 
 export async function updateResearch(input: unknown) {
-  const session = await verifySession();
-  if (!session) {
-    return { error: "Session expired. Please sign out and sign in again." };
-  }
+  const auth = await requireSession();
+  if (auth.error) return { error: auth.error };
 
   const parsed = updateResearchSchema.safeParse(input);
   if (!parsed.success) {
@@ -81,10 +78,8 @@ export async function updateResearch(input: unknown) {
 }
 
 export async function deleteResearch(input: unknown) {
-  const session = await verifySession();
-  if (!session) {
-    return { error: "Session expired. Please sign out and sign in again." };
-  }
+  const auth = await requireSession();
+  if (auth.error) return { error: auth.error };
 
   const parsed = deleteResearchSchema.safeParse(input);
   if (!parsed.success) {
@@ -123,10 +118,8 @@ export async function deleteResearch(input: unknown) {
 }
 
 export async function forceDeleteResearch(input: unknown) {
-  const session = await verifySession();
-  if (!session) {
-    return { error: "Session expired. Please sign out and sign in again." };
-  }
+  const auth = await requireSession();
+  if (auth.error) return { error: auth.error };
 
   const parsed = deleteResearchSchema.safeParse(input);
   if (!parsed.success) {

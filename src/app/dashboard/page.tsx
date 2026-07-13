@@ -7,7 +7,7 @@ import {
   computeDecisionStats,
   countByLevel,
   computeHitRateTrend,
-  computeSectorAllocation,
+  type SectorAllocation,
 } from "@/lib/analytics/dashboard";
 
 export const dynamic = "force-dynamic";
@@ -51,7 +51,7 @@ export default async function DashboardPage() {
     recentRecs,
     recentNotifications,
     topMovers,
-    allAssetsForSector,
+    sectorGroups,
   ] = await Promise.all([
     prisma.asset.count(),
     prisma.researchArtifact.count(),
@@ -81,8 +81,11 @@ export default async function DashboardPage() {
         lastPriceTs: true,
       },
     }),
-    prisma.asset.findMany({
-      select: { sector: true, lastPrice: true },
+    // Aggregate sector counts at the DB level to avoid loading all rows.
+    prisma.asset.groupBy({
+      by: ["sector"],
+      _count: { ticker: true },
+      _sum: { lastPrice: true },
     }),
   ]);
 
@@ -91,7 +94,15 @@ export default async function DashboardPage() {
   const trend = computeHitRateTrend(
     decisions.map((d) => ({ outcomeDate: d.outcomeDate, outcome: d.outcome }))
   );
-  const sectors = computeSectorAllocation(allAssetsForSector);
+
+  // Build sector allocation from the grouped DB result.
+  const sectors: SectorAllocation[] = sectorGroups
+    .map((g) => ({
+      sector: g.sector?.trim() || "Unclassified",
+      count: g._count.ticker,
+      knownValue: g._sum.lastPrice ?? 0,
+    }))
+    .sort((a, b) => b.count - a.count || b.knownValue - a.knownValue);
 
   return (
     <div className="space-y-6">

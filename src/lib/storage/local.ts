@@ -10,7 +10,12 @@ export class LocalStorageProvider implements IStorageProvider {
   }
 
   private resolve(relPath: string): string {
-    return path.resolve(this.rootPath, relPath);
+    const normalized = path.normalize(relPath);
+    // Reject any path that tries to escape the storage root.
+    if (normalized.startsWith("..") || path.isAbsolute(normalized)) {
+      throw new Error(`Invalid storage path: "${relPath}"`);
+    }
+    return path.resolve(this.rootPath, normalized);
   }
 
   async save(directory: string, fileName: string, buffer: Buffer): Promise<string> {

@@ -1,16 +1,14 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { verifySession } from "@/lib/auth";
+import { requireSession } from "@/lib/auth";
 import { createAssetSchema, addToWatchlistSchema, removeFromWatchlistSchema } from "@/lib/validators/asset";
 import { getAssetMetaAndPrice } from "@/lib/marketdata/yahoo";
 import { revalidatePath } from "next/cache";
 
 export async function createAsset(input: unknown) {
-  const session = await verifySession();
-  if (!session) {
-    return { error: "Session expired. Please sign out and sign in again." };
-  }
+  const auth = await requireSession();
+  if (auth.error) return { error: auth.error };
 
   const parsed = createAssetSchema.safeParse(input);
   if (!parsed.success) {
@@ -46,10 +44,8 @@ export async function createAsset(input: unknown) {
 }
 
 export async function addToWatchlist(input: unknown) {
-  const session = await verifySession();
-  if (!session) {
-    return { error: "Session expired. Please sign out and sign in again." };
-  }
+  const auth = await requireSession();
+  if (auth.error) return { error: auth.error };
 
   const parsed = addToWatchlistSchema.safeParse(input);
   if (!parsed.success) {
@@ -80,10 +76,8 @@ export async function addToWatchlist(input: unknown) {
 }
 
 export async function removeFromWatchlist(input: unknown) {
-  const session = await verifySession();
-  if (!session) {
-    return { error: "Session expired. Please sign out and sign in again." };
-  }
+  const auth = await requireSession();
+  if (auth.error) return { error: auth.error };
 
   const parsed = removeFromWatchlistSchema.safeParse(input);
   if (!parsed.success) {
@@ -107,11 +101,15 @@ export interface BatchImportResult {
   failed: Array<{ ticker: string; error: string }>;
 }
 
+function isValidTicker(ticker: string): boolean {
+  return /^[A-Z0-9.\-]{1,20}$/.test(ticker);
+}
+
 function parseTickerList(raw: string): string[] {
   // Accept newline or comma separated tickers
   const parts = raw.split(/[\n,]/).map((s) => s.trim().toUpperCase()).filter(Boolean);
-  // De-duplicate within batch, preserving order
-  return Array.from(new Set(parts));
+  // De-duplicate within batch, preserving order; drop malformed tickers
+  return Array.from(new Set(parts)).filter(isValidTicker);
 }
 
 function parseCsvTickers(csv: string): string[] {
@@ -127,16 +125,14 @@ function parseCsvTickers(csv: string): string[] {
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(",");
     const raw = cols[tickerIdx]?.trim().toUpperCase();
-    if (raw) tickers.push(raw);
+    if (raw && isValidTicker(raw)) tickers.push(raw);
   }
   return Array.from(new Set(tickers)); // de-duplicate
 }
 
 export async function batchImportAssets(input: { tickers?: string; csv?: string }) {
-  const session = await verifySession();
-  if (!session) {
-    return { error: "Session expired. Please sign out and sign in again." };
-  }
+  const auth = await requireSession();
+  if (auth.error) return { error: auth.error };
 
   // Collect tickers from both paste and CSV sources
   const tickers: string[] = [];
@@ -220,10 +216,8 @@ export interface BulkRefreshResult {
 }
 
 export async function bulkRefreshWatchlistPrices() {
-  const session = await verifySession();
-  if (!session) {
-    return { error: "Session expired. Please sign out and sign in again." };
-  }
+  const auth = await requireSession();
+  if (auth.error) return { error: auth.error };
 
   const entries = await prisma.watchlistEntry.findMany({
     select: { asset: { select: { ticker: true } } },

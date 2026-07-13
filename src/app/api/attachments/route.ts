@@ -41,10 +41,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No research artifact ID provided" }, { status: 400 });
   }
 
-  // Validate research artifact exists
+  // Validate research artifact exists and fetch current attachment sizes.
   const artifact = await prisma.researchArtifact.findUnique({
     where: { id: researchArtifactId },
-    include: { attachments: true },
+    select: {
+      id: true,
+      attachments: { select: { fileSizeBytes: true } },
+    },
   });
 
   if (!artifact) {

@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { verifySession } from "@/lib/auth";
+import { requireSession } from "@/lib/auth";
 import {
   createAlertSchema,
   deleteAlertSchema,
@@ -10,10 +10,8 @@ import {
 import { revalidatePath } from "next/cache";
 
 export async function createAlert(input: unknown) {
-  const session = await verifySession();
-  if (!session) {
-    return { error: "Session expired. Please sign out and sign in again." };
-  }
+  const auth = await requireSession();
+  if (auth.error) return { error: auth.error };
 
   const parsed = createAlertSchema.safeParse(input);
   if (!parsed.success) {
@@ -51,10 +49,8 @@ export async function createAlert(input: unknown) {
 }
 
 export async function deleteAlert(input: unknown) {
-  const session = await verifySession();
-  if (!session) {
-    return { error: "Session expired. Please sign out and sign in again." };
-  }
+  const auth = await requireSession();
+  if (auth.error) return { error: auth.error };
 
   const parsed = deleteAlertSchema.safeParse(input);
   if (!parsed.success) {
@@ -72,10 +68,8 @@ export async function deleteAlert(input: unknown) {
 }
 
 export async function toggleAlert(input: unknown) {
-  const session = await verifySession();
-  if (!session) {
-    return { error: "Session expired. Please sign out and sign in again." };
-  }
+  const auth = await requireSession();
+  if (auth.error) return { error: auth.error };
 
   const parsed = toggleAlertSchema.safeParse(input);
   if (!parsed.success) {

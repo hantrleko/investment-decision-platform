@@ -7,6 +7,7 @@
 
 import { createHash, randomBytes } from "crypto";
 import { prisma } from "@/lib/db";
+import { logger } from "@/lib/logger";
 
 const TOKEN_PREFIX = "eug_";
 
@@ -49,7 +50,7 @@ export async function verifyApiToken(
   // Best-effort usage timestamp (do not block the request on it).
   prisma.apiToken
     .update({ where: { id: token.id }, data: { lastUsedAt: new Date() } })
-    .catch(() => {});
+    .catch((err) => logger.warn("Failed to stamp token lastUsedAt", { tokenId: token.id, error: err }));
 
   return {
     id: token.id,

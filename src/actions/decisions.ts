@@ -1,15 +1,14 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { verifySession } from "@/lib/auth";
+import { requireSession } from "@/lib/auth";
 import { createDecisionSchema, recordOutcomeSchema } from "@/lib/validators/decision";
 import { revalidatePath } from "next/cache";
 
 export async function createDecision(input: unknown) {
-  const session = await verifySession();
-  if (!session) {
-    return { error: "Session expired. Please sign out and sign in again." };
-  }
+  const auth = await requireSession();
+  if (auth.error) return { error: auth.error };
+  const { session } = auth;
 
   const parsed = createDecisionSchema.safeParse(input);
   if (!parsed.success) {
@@ -90,10 +89,8 @@ export async function createDecision(input: unknown) {
 }
 
 export async function recordOutcome(input: unknown) {
-  const session = await verifySession();
-  if (!session) {
-    return { error: "Session expired. Please sign out and sign in again." };
-  }
+  const auth = await requireSession();
+  if (auth.error) return { error: auth.error };
 
   const parsed = recordOutcomeSchema.safeParse(input);
   if (!parsed.success) {

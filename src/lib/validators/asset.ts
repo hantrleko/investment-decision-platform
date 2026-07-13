@@ -1,11 +1,16 @@
 import { z } from "zod";
 
+const tickerSchema = z
+  .string()
+  .min(1, "Ticker is required")
+  .max(20)
+  .transform((v) => v.trim().toUpperCase())
+  .refine((v) => /^[A-Z0-9.\-]{1,20}$/.test(v), {
+    message: "Ticker may only contain letters, digits, dots, and hyphens",
+  });
+
 export const createAssetSchema = z.object({
-  ticker: z
-    .string()
-    .min(1, "Ticker is required")
-    .max(20)
-    .transform((v) => v.trim().toUpperCase()),
+  ticker: tickerSchema,
   name: z.string().min(1, "Name is required").max(200),
   sector: z.string().max(100).optional().default(""),
   assetType: z.enum(["equity", "crypto", "fx", "commodity", "other"]).default("equity"),

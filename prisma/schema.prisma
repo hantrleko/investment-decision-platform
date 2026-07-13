@@ -90,6 +90,9 @@ model ResearchArtifact {
   attachments DocumentAttachment[]
   scores      Score[]
   decisions   DecisionResearchLink[]
+
+  @@index([assetTicker])
+  @@index([createdAt])
 }
 
 model DocumentAttachment {
@@ -121,6 +124,10 @@ model Score {
   updatedAt          DateTime  @updatedAt
 
   decisions DecisionScoreLink[]
+
+  @@index([assetTicker])
+  @@index([compositeScore])
+  @@index([scoredAt])
 }
 
 model Decision {
@@ -139,6 +146,9 @@ model Decision {
 
   researchLinks DecisionResearchLink[]
   scoreLinks    DecisionScoreLink[]
+
+  @@index([status])
+  @@index([createdAt])
 }
 
 model DecisionResearchLink {
@@ -213,6 +223,8 @@ model Recommendation {
 
   @@index([assetTicker])
   @@index([strategySlug])
+  @@index([assetTicker, strategySlug])
+  @@index([createdAt])
 }
 
 // Price / signal alert rule attached to an asset. When the configured

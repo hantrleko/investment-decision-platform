@@ -22,8 +22,10 @@ import { logger } from "@/lib/logger";
  */
 
 function authorize(request: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
+  const secret = process.env.CRON_SECRET?.trim();
+  // Require a non-empty secret of at least 16 characters to prevent trivially
+  // weak or accidentally whitespace-only values from enabling the endpoint.
+  if (!secret || secret.length < 16) return false;
   const header = request.headers.get("authorization") || "";
   return header === `Bearer ${secret}`;
 }
@@ -85,7 +87,8 @@ async function runJob() {
 
 export async function POST(request: Request) {
   if (!authorize(request)) {
-    const disabled = !process.env.CRON_SECRET;
+    const secret = process.env.CRON_SECRET?.trim();
+    const disabled = !secret || secret.length < 16;
     return NextResponse.json(
       {
         error: disabled

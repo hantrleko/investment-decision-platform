@@ -67,3 +67,10 @@ export async function verifySession() {
   }
   return { ...session, user: { ...session.user, id: session.user.id } };
 }
+
+/** Convenience wrapper for server actions. Returns the session or an error object. */
+export async function requireSession() {
+  const session = await verifySession();
+  const error = session ? null : "Session expired. Please sign out and sign in again.";
+  return { session: session!, error };
+}
