@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { ScoringForm } from "@/components/scoring/scoring-form";
+import { AutoEvaluateButton } from "@/components/autoscore/auto-evaluate-button";
 
 interface PageProps {
   searchParams: Promise<{ asset?: string }>;
@@ -51,11 +52,18 @@ export default async function NewScorePage({ searchParams }: PageProps) {
   const alreadyScoredSlugs = [...new Set(asset.scores.map((s) => s.framework.slug))];
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <h1 className="mb-2 text-2xl font-bold">
-        Score {assetTicker}
-        <span className="ml-2 text-lg font-normal text-muted-foreground">{asset.name}</span>
-      </h1>
+    <div className="mx-auto max-w-3xl space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <h1 className="mb-2 text-2xl font-bold">
+          Score {assetTicker}
+          <span className="ml-2 text-lg font-normal text-muted-foreground">{asset.name}</span>
+        </h1>
+        <AutoEvaluateButton ticker={assetTicker} label="Auto Evaluate All" />
+      </div>
+      <div>
+        <h2 className="mb-2 text-sm font-medium text-muted-foreground">
+          Or score manually with a framework
+        </h2>
       <ScoringForm
         assetTicker={assetTicker}
         frameworks={frameworks.map((f) => ({
@@ -68,6 +76,7 @@ export default async function NewScorePage({ searchParams }: PageProps) {
         researchArtifacts={asset.researchArtifacts}
         alreadyScoredSlugs={alreadyScoredSlugs}
       />
+      </div>
     </div>
   );
 }

@@ -58,7 +58,7 @@ npx prisma db execute --file prisma/migrations/fts5_setup.sql --schema prisma/sc
 | `pnpm dev` | Start dev server (Turbopack) |
 | `pnpm build` | Production build |
 | `pnpm start` | Start production server |
-| `pnpm test` | Run all tests (216 tests, 17 files) |
+| `pnpm test` | Run all tests (250+ tests including autoscore unit suite) |
 | `pnpm test:watch` | Run tests in watch mode |
 | `pnpm lint` | Run ESLint |
 | `pnpm db:seed` | Seed database (frameworks + strategies + demo data) |
@@ -73,7 +73,7 @@ npx prisma db execute --file prisma/migrations/fts5_setup.sql --schema prisma/sc
 - **UI:** shadcn/ui + Tailwind CSS v4
 - **Editor:** TipTap v3 rich-text
 - **Storage:** Local filesystem behind `IStorageProvider` abstraction
-- **Market Data:** Yahoo Finance v8 chart API (auto-lookup + price refresh)
+- **Market Data:** Yahoo Finance v8 chart API + quoteSummary fundamentals (crumb auth) for Auto Evaluate
 - **Testing:** Vitest (unit + integration, in-memory SQLite per test file)
 
 ## App Modules
@@ -86,6 +86,17 @@ Track assets (equities) with auto-lookup from Yahoo Finance. Watchlist with pric
 
 ### Scores (`/scores`)
 Score assets using framework definitions. Each framework (Valuation, Macro, Trend) has weighted factors scored 0-10. Composite scores are auto-calculated. Scores can be linked to research artifacts for provenance.
+
+### Auto Evaluate (Phase 1 + 2)
+One-click machine scoring from live Yahoo Finance data:
+
+1. Open an asset detail page (or New Score) and click **Auto Evaluate**
+2. System fetches fundamentals (quoteSummary + crumb auth) and 1y OHLCV bars
+3. Maps **Valuation** (sector-relative grading), **Trend** (Minervini + RSI/RS/volume), and **Macro** (lightweight proxies)
+4. Writes scores with provenance `source: "auto"`, creates a markdown research report, and runs the Multi-Signal Gate strategy
+5. Manual **Score with Framework** remains available for overrides
+
+Core library: `src/lib/autoscore/` · Server action: `src/actions/autoscore.ts`
 
 ### Decisions (`/decisions`)
 Journal investment decisions with direction (bullish/bearish/neutral), thesis, linked research and scores. Record outcomes (correct/incorrect/partial) after the fact. Decisions are the ground truth for strategy analytics.

@@ -31,3 +31,11 @@ describe("buildProvenance", () => {
     expect(record.note).toBeUndefined();
   });
 });
+
+  it("supports auto provenance source", () => {
+    const json = buildProvenance("auto", { note: "Yahoo pipeline" });
+    const record = JSON.parse(json);
+    expect(record.source).toBe("auto");
+    expect(record.note).toBe("Yahoo pipeline");
+  });
+
