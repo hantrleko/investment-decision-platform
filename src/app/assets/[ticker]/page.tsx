@@ -8,6 +8,7 @@ import { AssetTabs } from "@/components/assets/asset-tabs";
 import { ScoreComparison } from "@/components/scoring/score-comparison";
 import { RefreshPriceButton } from "@/components/assets/refresh-price-button";
 import { ManualPriceForm } from "@/components/assets/manual-price-form";
+import { AutoEvaluateButton } from "@/components/autoscore/auto-evaluate-button";
 
 interface PageProps {
   params: Promise<{ ticker: string }>;
@@ -121,9 +122,10 @@ export default async function AssetDetailPage({ params }: PageProps) {
             currentSource={asset.priceSource}
           />
           <ManualPriceForm ticker={ticker} />
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
+            <AutoEvaluateButton ticker={ticker} />
             <Link href={`/scores/new?asset=${ticker}`}>
-              <Button size="sm">Score with Framework</Button>
+              <Button size="sm" variant="outline">Score with Framework</Button>
             </Link>
             <Link href={`/strategies?asset=${ticker}`}>
               <Button size="sm" variant="outline">Run Strategy</Button>

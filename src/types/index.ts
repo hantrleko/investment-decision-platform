@@ -3,4 +3,4 @@ export type Direction = "bullish" | "bearish" | "neutral";
 export type DecisionStatus = "open" | "closed";
 export type Outcome = "correct" | "incorrect" | "partial";
 export type ContentType = "rich-text" | "markdown" | "note";
-export type ProvenanceSource = "research" | "manual" | "csv";
+export type ProvenanceSource = "research" | "manual" | "csv" | "auto";
